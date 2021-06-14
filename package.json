@@ -1,0 +1,56 @@
+{
+	"name": "rbxts-transformer-flamework",
+	"version": "0.0.1",
+	"description": "An opinionated game framework for Roblox.",
+	"main": "out/index.js",
+	"author": "Fireboltofdeath",
+	"license": "MIT",
+	"homepage": "https://github.com/FireTS/rbxts-transformer-wrapper#readme",
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/FireTS/rbxts-transformer-wrapper.git"
+	},
+	"bugs": {
+		"url": "https://github.com/FireTS/rbxts-transformer-wrapper/issues"
+	},
+	"scripts": {
+		"build": "tsc",
+		"watch": "tsc -w",
+		"prepare": "tsc"
+	},
+	"dependencies": {
+		"@phenomnomnominal/tstemplate": "^0.1.0",
+		"@types/hashids": "^1.0.32",
+		"@types/md5": "^2.3.0",
+		"@types/uuid": "^8.3.0",
+		"ajv": "^6.12.6",
+		"chalk": "^4.1.1",
+		"fflate": "^0.6.10",
+		"find-package-json": "^1.2.0",
+		"fs-extra": "^10.0.0",
+		"hashids": "^2.2.8",
+		"lz4": "^0.6.5",
+		"md5": "^2.3.0",
+		"reflect-metadata": "^0.1.13",
+		"ts-expose-internals": "^4.2.4",
+		"ttypescript": "^1.5.12",
+		"typescript": "=4.3.2",
+		"uuid": "^8.3.2"
+	},
+	"devDependencies": {
+		"@types/find-package-json": "^1.2.0",
+		"@types/fs-extra": "^9.0.11",
+		"@types/node": "^14.14.43",
+		"@typescript-eslint/eslint-plugin": "^4.9.1",
+		"@typescript-eslint/parser": "^4.9.1",
+		"eslint": "^7.15.0",
+		"eslint-config-prettier": "^7.0.0",
+		"eslint-plugin-prettier": "^3.2.0",
+		"prettier": "^2.2.1",
+		"typescript-transform-paths": "^2.2.3"
+	},
+	"files": [
+		"out",
+		"index.d.ts"
+	]
+}

@@ -1,0 +1,19 @@
+{
+	"compilerOptions": {
+	  "target": "es5",
+	  "module": "commonjs",
+	  "outDir": "out",
+	  "rootDir": "src",
+	  "typeRoots": ["node_modules/@types"],
+	  "experimentalDecorators": true,
+	  "emitDecoratorMetadata": true,
+	  "downlevelIteration": true,
+
+	  "strict": true,
+	  "lib": ["ES2015", "DOM"],
+
+	  "esModuleInterop": true,
+	  "skipLibCheck": true,
+	  "forceConsistentCasingInFileNames": true,
+	}
+}

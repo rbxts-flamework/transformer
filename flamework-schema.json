@@ -1,0 +1,63 @@
+{
+	"$schema": "http://json-schema.org/draft-07/schema#",
+	"required": ["version", "flameworkVersion", "identifiers"],
+	"type": "object",
+	"properties": {
+		"version": {
+			"type": "number"
+		},
+		"flameworkVersion": {
+			"type": "string"
+		},
+		"identifiers": {
+			"type": "object",
+			"additionalProperties": {
+				"type": "string"
+			}
+		},
+		"salt": {
+			"type": "string"
+		},
+		"stringHashes": {
+			"type": "object",
+			"additionalProperties": {
+				"type": "string"
+			}
+		},
+		"classes": {
+			"type": "array",
+			"items": {
+				"type": "object",
+				"properties": {
+					"filePath": {
+						"type": "string"
+					},
+					"internalId": {
+						"type": "string"
+					},
+					"isExternal": {
+						"type": "boolean"
+					},
+					"decorators": {
+						"type": "array",
+						"items": {
+							"type": "object",
+							"properties": {
+								"name": {
+									"type": "string"
+								},
+								"internalId": {
+									"type": "string"
+								},
+								"isFlameworkDecorator": {
+									"type": "boolean"
+								}
+							}
+						}
+					}
+
+				}
+			}
+		}
+	}
+}
