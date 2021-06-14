@@ -1,4 +1,5 @@
 import ts from "typescript";
+import { Diagnostics } from "../../classes/diagnostics";
 import { TransformState } from "../../classes/transformState";
 import { DecoratorInfo, DecoratorWithNodes } from "../../types/decorators";
 import { f } from "../../util/factory";
@@ -26,16 +27,14 @@ export function transformClassDeclaration(state: TransformState, node: ts.ClassD
 				.map((x) => {
 					const id = state.getUid(x.declaration);
 
-					let config: ts.Expression;
-					if (x.isFlameworkDecorator) {
-						const baseObject = f.is.object(x.arguments[0]) ? x.arguments[0] : f.object([]);
-						config = generateFlameworkConfig(state, node, x, baseObject);
-					} else {
-						config = f.object({
-							type: "Arbitrary",
-							arguments: x.arguments,
-						});
-					}
+					const config = x.isFlameworkDecorator
+						? generateFlameworkConfig(
+								state,
+								node,
+								x,
+								f.is.object(x.arguments[0]) ? x.arguments[0] : f.object([]),
+						  )
+						: f.object({ type: "Arbitrary", arguments: x.arguments });
 
 					return f.object([f.propertyDeclaration("identifier", id), f.propertyDeclaration("config", config)]);
 				}),
@@ -46,16 +45,13 @@ export function transformClassDeclaration(state: TransformState, node: ts.ClassD
 	if (constructor) {
 		const constructorDependencies = [];
 		for (const param of constructor.parameters) {
-			if (f.is.referenceType(param.type)) {
-				const symbol = state.getSymbol(param.type.typeName);
-				const declaration = symbol?.getDeclarations()?.[0];
-				if (declaration) {
-					constructorDependencies.push(state.getUid(declaration));
-					continue;
-				}
-			}
-			console.log(node.getText());
-			throw new Error("Argument cannot be injected");
+			if (!f.is.referenceType(param.type)) Diagnostics.error(param, `Expected type reference`);
+
+			const symbol = state.getSymbol(param.type.typeName);
+			const declaration = symbol?.getDeclarations()?.[0];
+			if (!declaration) Diagnostics.error(param, `Could not find declaration`);
+
+			constructorDependencies.push(state.getUid(declaration));
 		}
 		if (constructor.parameters.length > 0) {
 			fields.push(f.propertyDeclaration("dependencies", constructorDependencies));
@@ -65,14 +61,16 @@ export function transformClassDeclaration(state: TransformState, node: ts.ClassD
 	if (node.heritageClauses) {
 		const implementClauses = new Array<ts.StringLiteral>();
 		for (const clause of node.heritageClauses) {
-			if (clause.token === ts.SyntaxKind.ImplementsKeyword) {
-				for (const type of clause.types) {
-					if (ts.isIdentifier(type.expression)) {
-						const symbol = state.getSymbol(type.expression);
-						const declaration = symbol?.declarations?.[0];
-						if (declaration) implementClauses.push(f.string(state.getUid(declaration)));
-					}
-				}
+			if (clause.token !== ts.SyntaxKind.ImplementsKeyword) continue;
+
+			for (const type of clause.types) {
+				if (!ts.isIdentifier(type.expression)) continue;
+
+				const symbol = state.getSymbol(type.expression);
+				const declaration = symbol?.declarations?.[0];
+				if (!declaration) continue;
+
+				implementClauses.push(f.string(state.getUid(declaration)));
 			}
 		}
 		if (implementClauses.length > 0) {
