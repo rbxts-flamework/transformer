@@ -8,6 +8,91 @@ import { getPackageJson } from "../util/functions/getPackageJson";
 import { Logger } from "./logger";
 import { f } from "../util/factory";
 
+const EXCLUDED_NAME_DIR = new Set(["src/", "lib/", "out/"]);
+
+export class SymbolProvider {
+	public fileSymbols = new Map<string, FileSymbol>();
+
+	public flameworkFile!: FileSymbol;
+	public componentsFile!: FileSymbol;
+
+	public flamework!: NamespaceSymbol;
+	public components!: ClassSymbol;
+
+	constructor(public state: TransformState) {}
+
+	private rbxtsDir = path.join(this.state.currentDirectory, "node_modules", "@rbxts");
+	private flameworkDir = fs.realpathSync(path.join(this.rbxtsDir, "flamework", "out"));
+
+	findFile(name: string) {
+		return this.fileSymbols.get(name);
+	}
+
+	getFile(name: string) {
+		const fileSymbol = this.findFile(name);
+		assert(fileSymbol, `Could not find fileSymbol for '${name}'`);
+
+		return fileSymbol;
+	}
+
+	registerInterestingFiles() {
+		for (const file of this.state.program.getSourceFiles()) {
+			if (this.isFileInteresting(file)) {
+				this.registerFileSymbol(file);
+			}
+		}
+
+		this.finalize();
+	}
+
+	private getName(packageName: string, directory: string, file: ts.SourceFile) {
+		const relativePath = path
+			.relative(directory, file.fileName)
+			.replace(/\\/g, "/")
+			.replace(/(\.d)?.ts$/, "");
+
+		if (EXCLUDED_NAME_DIR.has(relativePath.substr(0, 4))) {
+			return `${packageName}/${relativePath.substr(4)}`;
+		}
+
+		return `${packageName}/${relativePath}`;
+	}
+
+	private registerFileSymbol(file: ts.SourceFile) {
+		const { result, directory } = getPackageJson(file.fileName);
+		assert(result.name);
+
+		const name = this.getName(result.name, directory, file);
+		assert(!this.fileSymbols.has(name), "Attempt to register file twice");
+
+		Logger.writeLine(`Registering ${name}`);
+		const fileSymbol = new FileSymbol(this.state, file, name);
+		this.fileSymbols.set(name, fileSymbol);
+
+		return fileSymbol;
+	}
+
+	private isFileInteresting(file: ts.SourceFile) {
+		if (this.state.config.$rbxpackmode$ && isPathDescendantOf(file.fileName, this.state.srcDir)) {
+			return true;
+		}
+
+		if (isPathDescendantOf(file.fileName, this.flameworkDir)) {
+			return true;
+		}
+
+		return false;
+	}
+
+	private finalize() {
+		this.flameworkFile = this.getFile("@rbxts/flamework/flamework");
+		this.componentsFile = this.getFile("@rbxts/flamework/components");
+
+		this.flamework = this.flameworkFile.getNamespace("Flamework");
+		this.components = this.componentsFile.getClass("Components");
+	}
+}
+
 class ClassSymbol {
 	public classSymbol: ts.Symbol;
 
@@ -37,28 +122,6 @@ class ClassSymbol {
 	}
 }
 
-class InterfaceSymbol {
-	public interfaceSymbol: ts.Symbol;
-
-	constructor(
-		public fileSymbol: FileSymbol,
-		public parentSymbol: FileSymbol | NamespaceSymbol,
-		public node: ts.InterfaceDeclaration,
-	) {
-		const interfaceSymbol = fileSymbol.state.getSymbol(node.name);
-		assert(interfaceSymbol);
-
-		this.interfaceSymbol = interfaceSymbol;
-	}
-
-	get(name: string) {
-		const memberSymbol = this.interfaceSymbol.members?.get(name as ts.__String);
-		assert(memberSymbol, `Name ${name} not found in ${this.interfaceSymbol.name}`);
-
-		return memberSymbol;
-	}
-}
-
 class TypeSymbol {
 	public typeSymbol: ts.Symbol;
 	public type: ts.Type;
@@ -66,7 +129,7 @@ class TypeSymbol {
 	constructor(
 		public fileSymbol: FileSymbol,
 		public parentSymbol: FileSymbol | NamespaceSymbol,
-		public node: ts.TypeAliasDeclaration,
+		public node: ts.TypeAliasDeclaration | ts.InterfaceDeclaration,
 	) {
 		const typeSymbol = fileSymbol.state.getSymbol(node.name);
 		const type = fileSymbol.state.typeChecker.getTypeAtLocation(node.name);
@@ -88,7 +151,6 @@ class TypeSymbol {
 class NamespaceSymbol {
 	public classes = new Map<string, ClassSymbol>();
 	public namespaces = new Map<string, NamespaceSymbol>();
-	public interfaces = new Map<string, InterfaceSymbol>();
 	public types = new Map<string, TypeSymbol>();
 
 	public namespaceSymbol: ts.Symbol;
@@ -102,6 +164,7 @@ class NamespaceSymbol {
 		assert(namespaceSymbol);
 
 		this.namespaceSymbol = namespaceSymbol;
+		this.register();
 	}
 
 	get(name: string) {
@@ -125,13 +188,6 @@ class NamespaceSymbol {
 		return classSymbol;
 	}
 
-	getInterface(name: string) {
-		const interfaceSymbol = this.interfaces.get(name);
-		assert(interfaceSymbol);
-
-		return interfaceSymbol;
-	}
-
 	getType(name: string) {
 		const typeSymbol = this.types.get(name);
 		assert(typeSymbol);
@@ -139,7 +195,7 @@ class NamespaceSymbol {
 		return typeSymbol;
 	}
 
-	registerNamespace(node: ts.NamespaceDeclaration) {
+	private registerNamespace(node: ts.NamespaceDeclaration) {
 		assert(f.is.moduleBlockDeclaration(node.body));
 
 		const namespaceSymbol = new NamespaceSymbol(this.fileSymbol, this, node);
@@ -148,7 +204,7 @@ class NamespaceSymbol {
 		this.namespaces.set(node.name.text, namespaceSymbol);
 	}
 
-	registerClass(node: ts.ClassDeclaration) {
+	private registerClass(node: ts.ClassDeclaration) {
 		assert(node.name);
 
 		const classSymbol = new ClassSymbol(this.fileSymbol, this, node);
@@ -156,17 +212,12 @@ class NamespaceSymbol {
 		this.classes.set(node.name.text, classSymbol);
 	}
 
-	registerInterface(node: ts.InterfaceDeclaration) {
-		const interfaceSymbol = new InterfaceSymbol(this.fileSymbol, this, node);
-		this.interfaces.set(node.name.text, interfaceSymbol);
-	}
-
-	registerType(node: ts.TypeAliasDeclaration) {
+	private registerType(node: ts.TypeAliasDeclaration | ts.InterfaceDeclaration) {
 		const typeSymbol = new TypeSymbol(this.fileSymbol, this, node);
 		this.types.set(node.name.text, typeSymbol);
 	}
 
-	register() {
+	private register() {
 		assert(f.is.moduleBlockDeclaration(this.node.body));
 
 		for (const statement of this.node.body.statements) {
@@ -174,9 +225,7 @@ class NamespaceSymbol {
 				this.registerNamespace(statement);
 			} else if (f.is.classDeclaration(statement)) {
 				this.registerClass(statement);
-			} else if (f.is.interfaceDeclaration(statement)) {
-				this.registerInterface(statement);
-			} else if (f.is.typeAliasDeclaration(statement)) {
+			} else if (f.is.typeAliasDeclaration(statement) || f.is.interfaceDeclaration(statement)) {
 				this.registerType(statement);
 			}
 		}
@@ -186,7 +235,6 @@ class NamespaceSymbol {
 class FileSymbol {
 	public namespaces = new Map<string, NamespaceSymbol>();
 	public classes = new Map<string, ClassSymbol>();
-	public interfaces = new Map<string, InterfaceSymbol>();
 	public types = new Map<string, TypeSymbol>();
 
 	public fileSymbol: ts.Symbol;
@@ -196,6 +244,7 @@ class FileSymbol {
 		assert(fileSymbol);
 
 		this.fileSymbol = fileSymbol;
+		this.register();
 	}
 
 	get(name: string) {
@@ -219,13 +268,6 @@ class FileSymbol {
 		return classSymbol;
 	}
 
-	getInterface(name: string) {
-		const interfaceSymbol = this.interfaces.get(name);
-		assert(interfaceSymbol);
-
-		return interfaceSymbol;
-	}
-
 	getType(name: string) {
 		const typeSymbol = this.types.get(name);
 		assert(typeSymbol);
@@ -233,16 +275,15 @@ class FileSymbol {
 		return typeSymbol;
 	}
 
-	registerNamespace(node: ts.NamespaceDeclaration) {
+	private registerNamespace(node: ts.NamespaceDeclaration) {
 		assert(f.is.moduleBlockDeclaration(node.body));
 
 		const namespaceSymbol = new NamespaceSymbol(this, this, node);
-		namespaceSymbol.register();
 
 		this.namespaces.set(node.name.text, namespaceSymbol);
 	}
 
-	registerClass(node: ts.ClassDeclaration) {
+	private registerClass(node: ts.ClassDeclaration) {
 		if (!node.name) console.log(node.getText());
 		assert(node.name);
 
@@ -250,113 +291,20 @@ class FileSymbol {
 		this.classes.set(node.name.text, classSymbol);
 	}
 
-	registerInterface(node: ts.InterfaceDeclaration) {
-		const interfaceSymbol = new InterfaceSymbol(this, this, node);
-		this.interfaces.set(node.name.text, interfaceSymbol);
-	}
-
-	registerType(node: ts.TypeAliasDeclaration) {
+	private registerType(node: ts.TypeAliasDeclaration | ts.InterfaceDeclaration) {
 		const typeSymbol = new TypeSymbol(this, this, node);
 		this.types.set(node.name.text, typeSymbol);
 	}
 
-	register() {
+	private register() {
 		for (const statement of this.file.statements) {
 			if (f.is.namespaceDeclaration(statement)) {
 				this.registerNamespace(statement);
 			} else if (f.is.classDeclaration(statement)) {
 				this.registerClass(statement);
-			} else if (f.is.interfaceDeclaration(statement)) {
-				this.registerInterface(statement);
-			} else if (f.is.typeAliasDeclaration(statement)) {
+			} else if (f.is.typeAliasDeclaration(statement) || f.is.interfaceDeclaration(statement)) {
 				this.registerType(statement);
 			}
 		}
-	}
-}
-
-const EXCLUDED_NAME_DIR = new Set(["src/", "lib/", "out/"]);
-
-export class SymbolProvider {
-	public fileSymbols = new Map<string, FileSymbol>();
-
-	public flameworkFile!: FileSymbol;
-	public componentsFile!: FileSymbol;
-
-	public flamework!: NamespaceSymbol;
-	public components!: ClassSymbol;
-
-	constructor(public state: TransformState) {}
-
-	private rbxtsDir = path.join(this.state.currentDirectory, "node_modules", "@rbxts");
-	private flameworkDir = fs.realpathSync(path.join(this.rbxtsDir, "flamework", "out"));
-
-	private getName(packageName: string, directory: string, file: ts.SourceFile) {
-		const relativePath = path
-			.relative(directory, file.fileName)
-			.replace(/\\/g, "/")
-			.replace(/(\.d)?.ts$/, "");
-
-		if (EXCLUDED_NAME_DIR.has(relativePath.substr(0, 4))) {
-			return `${packageName}/${relativePath.substr(4)}`;
-		}
-
-		return `${packageName}/${relativePath}`;
-	}
-
-	findFile(name: string) {
-		return this.fileSymbols.get(name);
-	}
-
-	getFile(name: string) {
-		const fileSymbol = this.findFile(name);
-		assert(fileSymbol, `Could not find fileSymbol for '${name}'`);
-
-		return fileSymbol;
-	}
-
-	registerFileSymbol(file: ts.SourceFile) {
-		const { result, directory } = getPackageJson(file.fileName);
-		assert(result.name);
-
-		const name = this.getName(result.name, directory, file);
-		assert(!this.fileSymbols.has(name), "Attempt to register file twice");
-
-		const fileSymbol = new FileSymbol(this.state, file, name);
-		this.fileSymbols.set(name, fileSymbol);
-
-		Logger.writeLine(`Registering ${name}`);
-		fileSymbol.register();
-		return fileSymbol;
-	}
-
-	isFileInteresting(file: ts.SourceFile) {
-		if (this.state.config.$rbxpackmode$ && isPathDescendantOf(file.fileName, this.state.srcDir)) {
-			return true;
-		}
-
-		if (isPathDescendantOf(file.fileName, this.flameworkDir)) {
-			return true;
-		}
-
-		return false;
-	}
-
-	registerInterestingFiles() {
-		for (const file of this.state.program.getSourceFiles()) {
-			if (this.isFileInteresting(file)) {
-				this.registerFileSymbol(file);
-			}
-		}
-
-		this.finalize();
-	}
-
-	finalize() {
-		this.flameworkFile = this.getFile("@rbxts/flamework/flamework");
-		this.componentsFile = this.getFile("@rbxts/flamework/components");
-
-		this.flamework = this.flameworkFile.getNamespace("Flamework");
-		this.components = this.componentsFile.getClass("Components");
 	}
 }
