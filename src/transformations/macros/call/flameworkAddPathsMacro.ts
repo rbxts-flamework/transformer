@@ -2,8 +2,16 @@ import ts from "typescript";
 import path from "path";
 import { f } from "../../../util/factory";
 import { CallMacro } from "../macro";
-import { Logger } from "../../../classes/logger";
 import { Diagnostics } from "../../../classes/diagnostics";
+import { TransformState } from "../../../classes/transformState";
+
+function getPathFromSpecifier(state: TransformState, source: ts.SourceFile, hostDir: string, specifier: string) {
+	const sourceDir = path.dirname(source.fileName);
+	const absolutePath = specifier.startsWith(".") ? path.join(sourceDir, specifier) : path.join(hostDir, specifier);
+	const outputPath = state.pathTranslator.getOutputPath(absolutePath);
+
+	return state.rojoResolver?.getRbxPathFromFilePath(outputPath);
+}
 
 export const FlameworkAddPathsMacro: CallMacro = {
 	getSymbol(state) {
@@ -17,17 +25,12 @@ export const FlameworkAddPathsMacro: CallMacro = {
 		const convertedArguments: ts.Expression[] = [];
 
 		for (const arg of node.arguments) {
-			if (f.is.string(arg)) {
-				const rbxPath = state.rojoResolver.getRbxPathFromFilePath(
-					state.pathTranslator.getOutputPath(path.join(state.currentDirectory, arg.text)),
-				);
-				if (rbxPath) {
-					convertedArguments.push(f.array(rbxPath.map(f.string)));
-					continue;
-				}
-			}
+			if (!f.is.string(arg)) Diagnostics.error(arg, `Expected string`);
 
-			Logger.error("Found invalid addPaths argument", arg.getText());
+			const rbxPath = getPathFromSpecifier(state, state.getSourceFile(node), state.currentDirectory, arg.text);
+			if (!rbxPath) Diagnostics.error(arg, `Could not find rojo data`);
+
+			convertedArguments.push(f.array(rbxPath.map(f.string)));
 		}
 
 		return f.call(f.field(importId, "_addPaths"), convertedArguments);
