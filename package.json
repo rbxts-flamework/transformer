@@ -5,13 +5,13 @@
 	"main": "out/index.js",
 	"author": "Fireboltofdeath",
 	"license": "MIT",
-	"homepage": "https://github.com/FireTS/rbxts-transformer-wrapper#readme",
+	"homepage": "https://github.com/FireTS/rbxts-transformer-flamework",
 	"repository": {
 		"type": "git",
-		"url": "git+https://github.com/FireTS/rbxts-transformer-wrapper.git"
+		"url": "git+https://github.com/FireTS/rbxts-transformer-flamework.git"
 	},
 	"bugs": {
-		"url": "https://github.com/FireTS/rbxts-transformer-wrapper/issues"
+		"url": "https://github.com/FireTS/rbxts-transformer-flamework/issues"
 	},
 	"scripts": {
 		"build": "tsc",
