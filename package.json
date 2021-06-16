@@ -29,7 +29,6 @@
 		"find-package-json": "^1.2.0",
 		"fs-extra": "^10.0.0",
 		"hashids": "^2.2.8",
-		"lz4": "^0.6.5",
 		"md5": "^2.3.0",
 		"reflect-metadata": "^0.1.13",
 		"ts-expose-internals": "^4.2.4",
