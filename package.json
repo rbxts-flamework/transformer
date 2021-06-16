@@ -51,6 +51,8 @@
 	},
 	"files": [
 		"out",
-		"index.d.ts"
+		"index.d.ts",
+		"rojo-schema.json",
+		"flamework-schema.json"
 	]
 }
