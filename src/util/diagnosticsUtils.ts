@@ -10,6 +10,12 @@ export function captureDiagnostic<T, A extends unknown[]>(cb: (...args: A) => T,
 		return { success: true, value: cb(...args) };
 	} catch (e) {
 		if ("diagnostic" in e) {
+			/// Temporary workaround for 1.1.1
+			if (ts.version.startsWith("1.1.1") && !(globalThis as { RBXTSC_DEV?: boolean }).RBXTSC_DEV) {
+				e.diagnostic = undefined;
+				throw e;
+			}
+
 			return { success: false, diagnostic: e.diagnostic };
 		}
 		throw e;
