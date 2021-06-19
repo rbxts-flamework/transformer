@@ -129,7 +129,7 @@ export function buildGuardFromType(state: TransformState, file: ts.SourceFile, t
 		return f.call(f.field(tId, "literal"), [true]);
 	}
 
-	const falseType = typeChecker.getTrueType();
+	const falseType = typeChecker.getFalseType();
 	if (type === falseType) {
 		return f.call(f.field(tId, "literal"), [false]);
 	}
@@ -142,11 +142,6 @@ export function buildGuardFromType(state: TransformState, file: ts.SourceFile, t
 	const numberType = typeChecker.getNumberType();
 	if (type === numberType) {
 		return f.field(tId, "number");
-	}
-
-	const boolType = typeChecker.getBooleanType();
-	if (type === boolType) {
-		return f.field(tId, "bool");
 	}
 
 	if ((type.flags & ts.TypeFlags.Unknown) !== 0) {
@@ -209,6 +204,11 @@ export function buildGuardFromType(state: TransformState, file: ts.SourceFile, t
 
 function buildUnionGuard(state: TransformState, file: ts.SourceFile, type: ts.UnionType) {
 	const tId = state.addFileImport(file, "@rbxts/t", "t");
+
+	const boolType = type.checker.getBooleanType();
+	if (type === boolType) {
+		return f.field(tId, "boolean");
+	}
 
 	const enumType = type.checker.resolveName("Enum", undefined, ts.SymbolFlags.Type, false);
 	if (type.aliasSymbol && type.aliasSymbol.parent === enumType) {
