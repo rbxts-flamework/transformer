@@ -5,14 +5,13 @@ import { DecoratorInfo, DecoratorWithNodes } from "../../types/decorators";
 import { f } from "../../util/factory";
 import { buildGuardsFromType } from "../../util/functions/buildGuardFromType";
 import { getSuperClasses } from "../../util/functions/getSuperClasses";
-import { transformNode } from "../transformNode";
 
 export function transformClassDeclaration(state: TransformState, node: ts.ClassDeclaration) {
 	const symbol = state.getSymbol(node);
-	if (!symbol || !node.name) return node;
+	if (!symbol || !node.name) return state.transform(node);
 
 	const classInfo = state.classes.get(symbol);
-	if (!classInfo) return node;
+	if (!classInfo) return state.transform(node);
 
 	const fields: ts.ObjectLiteralElementLike[] = [];
 
@@ -80,11 +79,7 @@ export function transformClassDeclaration(state: TransformState, node: ts.ClassD
 
 	const importIdentifier = state.addFileImport(state.getSourceFile(node), "@rbxts/flamework", "Flamework");
 	return [
-		ts.visitEachChild(
-			f.update.classDeclaration(node, node.name, node.members, undefined),
-			(node) => transformNode(state, node),
-			state.context,
-		),
+		state.transform(f.update.classDeclaration(node, node.name, node.members, undefined)),
 		f.statement(f.call(f.field(importIdentifier, "registerMetadata"), [node.name, f.object(fields)])),
 	];
 }
