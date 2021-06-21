@@ -8,6 +8,7 @@ import { FlameworkHashMacro } from "./flameworkHashMacro";
 import { FlameworkIdMacro } from "./flameworkIdMacro";
 import { FlameworkImplementsMacro } from "./flameworkImplementsMacro";
 import { NetworkingConnectMacro } from "./networkingConnectMacro";
+import { TestingPatchDependencyMacro } from "./testingPatchDependencyMacro";
 
 export const CALL_MACROS = new Array<CallMacro>(
 	DependencyMacro,
@@ -15,6 +16,8 @@ export const CALL_MACROS = new Array<CallMacro>(
 	ComponentMethodMacro,
 
 	NetworkingConnectMacro,
+
+	TestingPatchDependencyMacro,
 
 	FlameworkIdMacro,
 	FlameworkAddPathsMacro,

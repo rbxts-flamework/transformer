@@ -22,7 +22,9 @@ export class SymbolProvider {
 	constructor(public state: TransformState) {}
 
 	private rbxtsDir = path.join(this.state.currentDirectory, "node_modules", "@rbxts");
-	private flameworkDir = fs.realpathSync(path.join(this.rbxtsDir, "flamework", "out"));
+	private flameworkDir = this.state.config.$rbxpackmode$
+		? path.join(this.state.currentDirectory, "src")
+		: fs.realpathSync(path.join(this.rbxtsDir, "flamework", "out"));
 
 	findFile(name: string) {
 		return this.fileSymbols.get(name);
