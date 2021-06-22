@@ -74,23 +74,23 @@ export function viewClassDeclaration(state: TransformState, node: ts.ClassDeclar
 					name: x.name,
 				})),
 			});
-		} else {
-			const buildClass = state.buildInfo.getBuildClass(internalId);
-			if (buildClass) {
-				state.classes.set(symbol, {
-					internalId,
-					node,
-					symbol,
-					name: node.name.text,
-					isExternal: buildClass.isExternal,
-					decorators: buildClass.decorators.map((x) => ({
-						type: "Base",
-						internalId: x.internalId,
-						name: x.name,
-						isFlameworkDecorator: x.isFlameworkDecorator,
-					})),
-				});
-			}
+		}
+	} else {
+		const buildClass = state.buildInfo.getBuildClass(internalId);
+		if (buildClass) {
+			state.classes.set(symbol, {
+				internalId,
+				node,
+				symbol,
+				name: node.name.text,
+				isExternal: buildClass.isExternal,
+				decorators: buildClass.decorators.map((x) => ({
+					type: "Base",
+					internalId: x.internalId,
+					name: x.name,
+					isFlameworkDecorator: x.isFlameworkDecorator,
+				})),
+			});
 		}
 	}
 }

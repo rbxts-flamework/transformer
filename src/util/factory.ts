@@ -320,7 +320,7 @@ export namespace f {
 			node: ts.ClassDeclaration,
 			name = node.name,
 			members = node.members,
-			decorators = node.decorators,
+			decorators?: Array<ts.Decorator>,
 			heritageClauses = node.heritageClauses,
 			typeParameters = node.typeParameters,
 			modifiers = node.modifiers,

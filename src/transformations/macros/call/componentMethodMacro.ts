@@ -21,7 +21,7 @@ export const ComponentMethodMacro: CallMacro = {
 			const declaration = state.getSymbol(firstType.typeName)?.declarations?.[0];
 			if (!declaration) Diagnostics.error(firstType, `Could not find declaration`);
 
-			return f.update.call(node, undefined, [
+			return f.update.call(node, state.transform(node.expression), [
 				node.arguments[0],
 				f.as(f.string(state.getUid(declaration)), f.keywordType(ts.SyntaxKind.NeverKeyword)),
 			]);
@@ -31,11 +31,12 @@ export const ComponentMethodMacro: CallMacro = {
 
 			const symbol = state.getSymbol(specifier);
 			if (!symbol) Diagnostics.error(specifier, `Symbol could not be found`);
+			if (!state.classes.has(symbol)) return state.transform(node);
 
 			const declaration = symbol?.declarations?.[0];
 			if (!declaration) Diagnostics.error(specifier, `Declaration could not be found`);
 
-			return f.update.call(node, undefined, [
+			return f.update.call(node, state.transform(node.expression), [
 				node.arguments[0],
 				f.as(f.string(state.getUid(declaration)), f.keywordType(ts.SyntaxKind.NeverKeyword)),
 			]);
