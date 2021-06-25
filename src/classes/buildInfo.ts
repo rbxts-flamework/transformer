@@ -63,6 +63,26 @@ export class BuildInfo {
 		return this.validateBuildFn(value) === true;
 	}
 
+	private static candidateCache = new Map<string, { result?: string }>();
+	static findCandidateUpper(startDirectory: string, depth = 4): string | undefined {
+		const cache = this.candidateCache.get(startDirectory);
+		if (cache && cache.result) {
+			return cache.result;
+		}
+
+		const buildPath = path.join(startDirectory, "flamework.build");
+		if (!cache && fs.existsSync(buildPath)) {
+			this.candidateCache.set(startDirectory, { result: buildPath });
+			return buildPath;
+		} else {
+			this.candidateCache.set(startDirectory, {});
+		}
+
+		if (depth > 0) {
+			return this.findCandidateUpper(path.dirname(startDirectory), depth - 1);
+		}
+	}
+
 	static findCandidates(searchPath: string, depth = 2, isNodeModules = true): string[] {
 		const candidates: string[] = [];
 

@@ -22,9 +22,19 @@ export class SymbolProvider {
 	constructor(public state: TransformState) {}
 
 	private rbxtsDir = path.join(this.state.currentDirectory, "node_modules", "@rbxts");
-	private flameworkDir = this.state.config.$rbxpackmode$
-		? path.join(this.state.currentDirectory, "src")
-		: fs.realpathSync(path.join(this.rbxtsDir, "flamework", "out"));
+	private flameworkDir = this.resolveFlameworkDir();
+
+	private resolveFlameworkDir() {
+		if (this.state.config.$rbxpackmode$) {
+			return path.join(this.state.currentDirectory, "src");
+		} else {
+			const module = ts.resolveModuleName("@rbxts/flamework", this.state.srcDir, this.state.options, ts.sys);
+			const resolvedModule = module.resolvedModule;
+			assert(resolvedModule);
+
+			return fs.realpathSync(path.join(resolvedModule.resolvedFileName, "../"));
+		}
+	}
 
 	findFile(name: string) {
 		return this.fileSymbols.get(name);

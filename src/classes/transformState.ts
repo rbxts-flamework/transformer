@@ -79,9 +79,22 @@ export class TransformState {
 		}
 		this.buildInfo = baseBuildInfo;
 
-		const nodeModules = path.join(this.currentDirectory, "node_modules");
-		const candidates =
-			Cache.buildInfoCandidates || (Cache.buildInfoCandidates = BuildInfo.findCandidates(nodeModules));
+		const candidates = Cache.buildInfoCandidates ?? [];
+		if (!Cache.buildInfoCandidates) {
+			Cache.buildInfoCandidates = candidates;
+			const candidatesSet = new Set<string>();
+			for (const file of this.program.getSourceFiles()) {
+				const buildCandidate = BuildInfo.findCandidateUpper(path.dirname(file.fileName));
+				if (
+					buildCandidate &&
+					buildCandidate !== baseBuildInfo.buildInfoPath &&
+					!candidatesSet.has(buildCandidate)
+				) {
+					candidatesSet.add(buildCandidate);
+					candidates.push(buildCandidate);
+				}
+			}
+		}
 
 		for (const candidate of candidates) {
 			const relativeCandidate = path.relative(this.currentDirectory, candidate);
