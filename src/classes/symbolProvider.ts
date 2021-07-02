@@ -7,6 +7,7 @@ import { TransformState } from "./transformState";
 import { getPackageJson } from "../util/functions/getPackageJson";
 import { Logger } from "./logger";
 import { f } from "../util/factory";
+import chalk from "chalk";
 
 const EXCLUDED_NAME_DIR = new Set(["src/", "lib/", "out/"]);
 
@@ -99,6 +100,15 @@ export class SymbolProvider {
 	private finalize() {
 		this.flameworkFile = this.getFile("@rbxts/flamework/flamework");
 		this.componentsFile = this.getFile("@rbxts/flamework/components");
+
+		if (!this.flameworkFile.namespaces.has("Flamework") || !this.componentsFile.classes.has("Components")) {
+			throw Logger.writeLine(
+				`${chalk.red("Failed to load! Symbols were not populated")}`,
+				"This is commonly caused by a TS version mismatch.",
+				"It is recommended that you use a local install of roblox-ts.",
+				`You can install a local version using ${chalk.green("npm install -D roblox-ts")}`,
+			);
+		}
 
 		this.flamework = this.flameworkFile.getNamespace("Flamework");
 		this.components = this.componentsFile.getClass("Components");
