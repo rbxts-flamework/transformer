@@ -78,7 +78,7 @@ export class SymbolProvider {
 		const name = this.getName(result.name, directory, file);
 		assert(!this.fileSymbols.has(name), "Attempt to register file twice");
 
-		Logger.writeLine(`Registering ${name}`);
+		Logger.writeLineIfVerbose(`Registering ${name}`);
 		const fileSymbol = new FileSymbol(this.state, file, name);
 		this.fileSymbols.set(name, fileSymbol);
 

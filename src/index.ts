@@ -9,7 +9,7 @@ import chalk from "chalk";
 
 export default function (program: ts.Program, config?: TransformerConfig) {
 	return (context: ts.TransformationContext): ((file: ts.SourceFile) => ts.Node) => {
-		Logger.write("\n");
+		if (Logger.verbose) Logger.write("\n");
 		f.setFactory(context.factory);
 
 		const state = new TransformState(program, context, config ?? {});

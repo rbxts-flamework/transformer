@@ -7,6 +7,7 @@ interface Label {
 
 export class Logger {
 	public static debug = true;
+	public static verbose = process.argv.includes("--verbose");
 
 	static write(message: string) {
 		process.stdout.write(message);
@@ -23,12 +24,24 @@ export class Logger {
 		}
 	}
 
+	static writeLineIfVerbose(...messages: Array<unknown>) {
+		if (this.verbose) return this.writeLine(...messages);
+	}
+
 	static info(...messages: Array<unknown>) {
 		this.writeLine(...messages.map((x) => chalk.blue(x)));
 	}
 
+	static infoIfVerbose(...messages: Array<unknown>) {
+		if (this.verbose) return this.info(...messages);
+	}
+
 	static warn(...messages: Array<unknown>) {
 		this.writeLine(...messages.map((x) => chalk.yellow(x)));
+	}
+
+	static warnIfVerbose(...messages: Array<unknown>) {
+		if (this.verbose) return this.warn(...messages);
 	}
 
 	static error(...messages: Array<unknown>) {

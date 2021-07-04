@@ -100,7 +100,7 @@ export class TransformState {
 			const relativeCandidate = path.relative(this.currentDirectory, candidate);
 			const buildInfo = BuildInfo.fromPath(candidate);
 			if (buildInfo) {
-				Logger.info(`Loaded buildInfo at ${relativeCandidate}, next id: ${buildInfo.getLatestId()}`);
+				Logger.infoIfVerbose(`Loaded buildInfo at ${relativeCandidate}, next id: ${buildInfo.getLatestId()}`);
 				baseBuildInfo.addBuildInfo(buildInfo);
 			} else {
 				Logger.warn(`Build info not valid at ${relativeCandidate}`);
