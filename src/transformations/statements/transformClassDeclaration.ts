@@ -4,7 +4,6 @@ import { TransformState } from "../../classes/transformState";
 import { DecoratorInfo, DecoratorWithNodes } from "../../types/decorators";
 import { f } from "../../util/factory";
 import { buildGuardFromType, buildGuardsFromType } from "../../util/functions/buildGuardFromType";
-import { getInstanceTypeFromType } from "../../util/functions/getInstanceTypeFromType";
 import { getSuperClasses } from "../../util/functions/getSuperClasses";
 
 export function transformClassDeclaration(state: TransformState, node: ts.ClassDeclaration) {
@@ -187,8 +186,7 @@ function updateInstanceGuard(
 	const superInstanceType = state.typeChecker.getTypeOfSymbolAtLocation(superProperty, superClass);
 	if (!superInstanceType) return;
 
-	const file = state.getSourceFile(node);
-	if (getInstanceTypeFromType(file, instanceType) !== getInstanceTypeFromType(file, superInstanceType)) {
+	if (!type.checker.isTypeAssignableTo(superInstanceType, instanceType)) {
 		const guard = buildGuardFromType(state, state.getSourceFile(node), instanceType);
 		properties.push(f.propertyDeclaration("instanceGuard", guard));
 	}
