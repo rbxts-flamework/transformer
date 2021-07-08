@@ -3,7 +3,8 @@ import { Diagnostics } from "../../classes/diagnostics";
 import { TransformState } from "../../classes/transformState";
 import { DecoratorInfo, DecoratorWithNodes } from "../../types/decorators";
 import { f } from "../../util/factory";
-import { buildGuardsFromType } from "../../util/functions/buildGuardFromType";
+import { buildGuardFromType, buildGuardsFromType } from "../../util/functions/buildGuardFromType";
+import { getInstanceTypeFromType } from "../../util/functions/getInstanceTypeFromType";
 import { getSuperClasses } from "../../util/functions/getSuperClasses";
 
 export function transformClassDeclaration(state: TransformState, node: ts.ClassDeclaration) {
@@ -123,14 +124,16 @@ function calculateOmittedGuards(
 	return omittedNames;
 }
 
-function generateComponentConfig(
+function updateAttributeGuards(
 	state: TransformState,
 	node: ts.ClassDeclaration,
 	properties: ts.ObjectLiteralElementLike[],
-): ts.ObjectLiteralElementLike[] | undefined {
+) {
 	const type = state.typeChecker.getTypeAtLocation(node);
+	const baseComponent = state.symbolProvider.componentsFile.get("BaseComponent");
+
 	const property = type.getProperty("attributes");
-	if (!property || property.parent !== state.symbolProvider.componentsFile.get("BaseComponent")) return;
+	if (!property || property.parent !== baseComponent) return;
 
 	const attributesType = state.typeChecker.getTypeOfSymbolAtLocation(property, node);
 	if (!attributesType) return;
@@ -157,6 +160,52 @@ function generateComponentConfig(
 	return properties;
 }
 
+function updateInstanceGuard(
+	state: TransformState,
+	node: ts.ClassDeclaration,
+	properties: ts.ObjectLiteralElementLike[],
+) {
+	const type = state.typeChecker.getTypeAtLocation(node);
+	const baseComponent = state.symbolProvider.componentsFile.get("BaseComponent");
+
+	const property = type.getProperty("instance");
+	if (!property || property.parent !== baseComponent) return;
+
+	const superClass = getSuperClasses(state.typeChecker, node)[0];
+	if (!superClass) return;
+
+	const customGuard = properties.find((x) => x.name && "text" in x.name && x.name.text === "instanceGuard");
+	if (customGuard) return;
+
+	const instanceType = state.typeChecker.getTypeOfSymbolAtLocation(property, node);
+	if (!instanceType) return;
+
+	const superType = state.typeChecker.getTypeAtLocation(superClass);
+	const superProperty = superType.getProperty("instance");
+	if (!superProperty) return;
+
+	const superInstanceType = state.typeChecker.getTypeOfSymbolAtLocation(superProperty, superClass);
+	if (!superInstanceType) return;
+
+	const file = state.getSourceFile(node);
+	if (getInstanceTypeFromType(file, instanceType) !== getInstanceTypeFromType(file, superInstanceType)) {
+		const guard = buildGuardFromType(state, state.getSourceFile(node), instanceType);
+		properties.push(f.propertyDeclaration("instanceGuard", guard));
+	}
+
+	return properties;
+}
+
+function updateComponentConfig(
+	state: TransformState,
+	node: ts.ClassDeclaration,
+	properties: ts.ObjectLiteralElementLike[],
+): ts.ObjectLiteralElementLike[] {
+	properties = updateAttributeGuards(state, node, properties) ?? properties;
+	properties = updateInstanceGuard(state, node, properties) ?? properties;
+	return properties;
+}
+
 function generateFlameworkConfig(
 	state: TransformState,
 	node: ts.ClassDeclaration,
@@ -167,8 +216,7 @@ function generateFlameworkConfig(
 
 	// Automatically generate component attributes
 	if (decorator.name === "Component") {
-		const newConfig = generateComponentConfig(state, node, properties);
-		if (newConfig) properties = newConfig;
+		properties = updateComponentConfig(state, node, properties);
 	}
 
 	return f.update.object(config, [f.propertyDeclaration("type", decorator.name), ...properties]);
