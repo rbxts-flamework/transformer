@@ -2,6 +2,8 @@ import ts from "typescript";
 import { Diagnostics } from "../../classes/diagnostics";
 import { TransformState } from "../../classes/transformState";
 import { f } from "../factory";
+import { getDeclarationOfType } from "./getDeclarationOfType";
+import { getInstanceTypeFromType } from "./getInstanceTypeFromType";
 
 /**
  * Convert a type into a list of typeguards.
@@ -18,11 +20,12 @@ export function buildGuardsFromType(
 	isInterfaceType = false,
 ): ts.PropertyAssignment[] {
 	const typeChecker = state.typeChecker;
+	const diagnosticsLocation = getDeclarationOfType(type) ?? file;
 
 	const guards = new Array<ts.PropertyAssignment>();
 	for (const property of type.getProperties()) {
 		const propertyType = typeChecker.getTypeOfPropertyOfType(type, property.name);
-		if (!propertyType) Diagnostics.error(file, "Could not find type for field");
+		if (!propertyType) Diagnostics.error(diagnosticsLocation, "Could not find type for field");
 
 		if (isInterfaceType && (propertyType.flags & ts.TypeFlags.Unknown) !== 0) {
 			continue;
@@ -76,7 +79,31 @@ const rbxTypes = [
  */
 export function buildGuardFromType(state: TransformState, file: ts.SourceFile, type: ts.Type): ts.Expression {
 	const typeChecker = state.typeChecker;
+	const diagnosticsLocation = getDeclarationOfType(type) ?? file;
 	const tId = state.addFileImport(file, "@rbxts/t", "t");
+
+	if (isInstanceType(type)) {
+		const instanceType = getInstanceTypeFromType(file, type);
+		const additionalGuards = new Array<ts.PropertyAssignment>();
+
+		for (const property of type.getProperties()) {
+			const propertyType = type.checker.getTypeOfPropertyOfType(type, property.name);
+			if (propertyType && !instanceType.getProperty(property.name)) {
+				// assume intersections are children
+				additionalGuards.push(
+					f.propertyDeclaration(property.name, buildGuardFromType(state, file, propertyType)),
+				);
+			}
+		}
+
+		const baseGuard = f.call(f.field(tId, "instanceIsA"), [instanceType.symbol.name]);
+		return additionalGuards.length === 0
+			? baseGuard
+			: f.call(f.field(tId, "intersection"), [
+					baseGuard,
+					f.call(f.field(tId, "children"), [f.object(additionalGuards)]),
+			  ]);
+	}
 
 	if (type.isUnion()) {
 		return buildUnionGuard(state, file, type);
@@ -88,10 +115,6 @@ export function buildGuardFromType(state: TransformState, file: ts.SourceFile, t
 
 	if (type.isStringLiteral() || type.isNumberLiteral()) {
 		return f.call(f.field(tId, "literal"), [type.value]);
-	}
-
-	if (isInstanceType(type) && type.symbol) {
-		return f.call(f.field(tId, "instanceIsA"), [type.symbol.name]);
 	}
 
 	if (typeChecker.isTupleType(type)) {
@@ -149,7 +172,7 @@ export function buildGuardFromType(state: TransformState, file: ts.SourceFile, t
 	}
 
 	const symbol = type.getSymbol();
-	if (!symbol) Diagnostics.error(file, "Attribute type has no symbol");
+	if (!symbol) Diagnostics.error(diagnosticsLocation, "Attribute type has no symbol");
 
 	const mapSymbol = typeChecker.resolveName("Map", undefined, ts.SymbolFlags.Type, false);
 	const readonlyMapSymbol = typeChecker.resolveName("ReadonlyMap", undefined, ts.SymbolFlags.Type, false);
@@ -179,7 +202,7 @@ export function buildGuardFromType(state: TransformState, file: ts.SourceFile, t
 
 	for (const guard of rbxTypes) {
 		const guardSymbol = typeChecker.resolveName(guard, undefined, ts.SymbolFlags.Type, false);
-		if (!guardSymbol) Diagnostics.error(file, `Could not find symbol for ${guard}`);
+		if (!guardSymbol) Diagnostics.error(diagnosticsLocation, `Could not find symbol for ${guard}`);
 
 		if (symbol === guardSymbol) {
 			return f.field(tId, guard);
@@ -187,7 +210,7 @@ export function buildGuardFromType(state: TransformState, file: ts.SourceFile, t
 	}
 
 	if (type.isClass()) {
-		Diagnostics.error(file, "Invalid type: class");
+		Diagnostics.error(diagnosticsLocation, "Invalid type: class");
 	}
 
 	const isObject = isObjectType(type);
@@ -199,7 +222,7 @@ export function buildGuardFromType(state: TransformState, file: ts.SourceFile, t
 		return f.call(f.field(tId, "interface"), [f.object(buildGuardsFromType(state, file, type, true))]);
 	}
 
-	Diagnostics.error(file, `Invalid type: ${typeChecker.typeToString(type)}`);
+	Diagnostics.error(diagnosticsLocation, `Invalid type: ${typeChecker.typeToString(type)}`);
 }
 
 function buildUnionGuard(state: TransformState, file: ts.SourceFile, type: ts.UnionType) {
@@ -231,19 +254,8 @@ function buildUnionGuard(state: TransformState, file: ts.SourceFile, type: ts.Un
 function buildIntersectionGuard(state: TransformState, file: ts.SourceFile, type: ts.IntersectionType) {
 	const tId = state.addFileImport(file, "@rbxts/t", "t");
 
-	const hasInstance = type.types.some((x) => isInstanceType(x));
-	if (hasInstance) {
-		const guards = type.types.map((x) => {
-			if ((isObjectType(x) || x.isClassOrInterface()) && !isInstanceType(x)) {
-				return f.call(f.field(tId, "children"), [f.object(buildGuardsFromType(state, file, x))]);
-			}
-			return buildGuardFromType(state, file, x);
-		});
-		return f.call(f.field(tId, "intersection"), guards);
-	} else {
-		const guards = type.types.map((x) => buildGuardFromType(state, file, x));
-		return f.call(f.field(tId, "intersection"), guards);
-	}
+	const guards = type.types.map((x) => buildGuardFromType(state, file, x));
+	return f.call(f.field(tId, "intersection"), guards);
 }
 
 function isObjectType(type: ts.Type): type is ts.InterfaceType {
