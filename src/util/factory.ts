@@ -112,6 +112,14 @@ export namespace f {
 			: factory.createAsExpression(expression, node);
 	}
 
+	export function binary(
+		left: ConvertableExpression,
+		op: ts.BinaryOperator | ts.BinaryOperatorToken,
+		right: ConvertableExpression,
+	) {
+		return factory.createBinaryExpression(toExpression(left), op, toExpression(right));
+	}
+
 	/// Statements
 	/// Declarations
 
@@ -186,6 +194,10 @@ export namespace f {
 	export namespace is {
 		/// Expressions
 
+		export function statement(node?: ts.Node): node is ts.ExpressionStatement {
+			return node !== undefined && ts.isExpressionStatement(node);
+		}
+
 		export function string(node?: ts.Node): node is ts.StringLiteral {
 			return node !== undefined && ts.isStringLiteral(node);
 		}
@@ -224,6 +236,18 @@ export namespace f {
 
 		export function omitted(node?: ts.Node): node is ts.OmittedExpression {
 			return node !== undefined && ts.isOmittedExpression(node);
+		}
+
+		export function accessExpression(node?: ts.Node): node is ts.AccessExpression {
+			return node !== undefined && ts.isAccessExpression(node);
+		}
+
+		export function propertyAccessExpression(node?: ts.Node): node is ts.PropertyAccessExpression {
+			return node !== undefined && ts.isPropertyAccessExpression(node);
+		}
+
+		export function postfixUnary(node?: ts.Node): node is ts.PostfixUnaryExpression {
+			return node !== undefined && ts.isPostfixUnaryExpression(node);
 		}
 
 		/// Statements
