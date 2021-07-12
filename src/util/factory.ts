@@ -286,6 +286,10 @@ export namespace f {
 			return node !== undefined && ts.isTypeReferenceNode(node);
 		}
 
+		export function queryType(node?: ts.Node): node is ts.TypeQueryNode {
+			return node !== undefined && ts.isTypeQueryNode(node);
+		}
+
 		/// OTHERS
 		export function namedImports(node?: ts.Node): node is ts.NamedImports {
 			return node !== undefined && ts.isNamedImports(node);

@@ -9,9 +9,15 @@ export const FlameworkIdMacro: CallMacro = {
 
 	transform(state, node) {
 		const typeArgument = node.typeArguments?.[0];
-		if (!f.is.referenceType(typeArgument)) Diagnostics.error(typeArgument ?? node, `Invalid type argument`);
+		if (!typeArgument) Diagnostics.error(node, "Expected type argument");
 
-		const typeArgumentSymbol = state.getSymbol(typeArgument.typeName);
+		const typeName = f.is.referenceType(typeArgument)
+			? typeArgument.typeName
+			: f.is.queryType(typeArgument)
+			? typeArgument.exprName
+			: Diagnostics.error(typeArgument ?? node, `Invalid type argument`);
+
+		const typeArgumentSymbol = state.getSymbol(typeName);
 		const declaration = typeArgumentSymbol?.declarations?.[0];
 		if (!declaration) Diagnostics.error(typeArgument, "Could not find declaration");
 

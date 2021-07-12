@@ -168,7 +168,7 @@ export function buildGuardFromType(state: TransformState, file: ts.SourceFile, t
 	}
 
 	if ((type.flags & ts.TypeFlags.Unknown) !== 0) {
-		return f.call(f.field(tId, "intersection"), [f.field(tId, "any"), f.field(tId, "none")]);
+		return f.call(f.field(tId, "union"), [f.field(tId, "any"), f.field(tId, "none")]);
 	}
 
 	const symbol = type.getSymbol();

@@ -170,17 +170,18 @@ export class TransformState {
 
 		if (importPath === "@rbxts/flamework") {
 			if (
-				file === symbolProvider.flameworkFile.file ||
-				this.getSymbol(file) === symbolProvider.flameworkFile.fileSymbol
+				(file === symbolProvider.flameworkFile.file ||
+					this.getSymbol(file) === symbolProvider.flameworkFile.fileSymbol) &&
+				name === "Flamework"
 			) {
 				return f.identifier("Flamework");
 			}
 
 			const flameworkDir = path.dirname(symbolProvider.flameworkFile.file.fileName);
-			const flameworkPath = path.join(flameworkDir, "flamework");
+			const modulePath = path.join(flameworkDir, name === "Reflect" ? "reflect" : "flamework");
 
 			if (isPathDescendantOf(file.fileName, flameworkDir)) {
-				importPath = "./" + path.relative(path.dirname(file.fileName), flameworkPath) || ".";
+				importPath = "./" + path.relative(path.dirname(file.fileName), modulePath) || ".";
 			}
 		}
 
@@ -191,6 +192,13 @@ export class TransformState {
 		if (!importInfo) importInfos.push((importInfo = { path: importPath, entries: [] }));
 
 		let identifier = importInfo.entries.find((x) => x.name === name)?.identifier;
+		if (!identifier) {
+			if (!file.identifiers.has(name)) {
+				identifier = f.identifier(name);
+				importInfo.entries.push({ name, identifier });
+			}
+		}
+
 		if (!identifier) {
 			start: for (const statement of file.statements) {
 				if (!f.is.importDeclaration(statement)) break;

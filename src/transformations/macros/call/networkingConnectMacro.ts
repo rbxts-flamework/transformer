@@ -23,7 +23,7 @@ export const NetworkingConnectMacro: CallMacro = {
 		if (customGuards !== undefined && !f.is.array(customGuards))
 			Diagnostics.error(customGuards, `Expected array or undefined`);
 
-		if (!cb.parameters.some((x) => x.type !== undefined)) return node;
+		if (!cb.parameters.some((x) => x.type !== undefined)) return state.transform(node);
 
 		const undefinedId = f.identifier("undefined");
 		const generatedGuards = new Array<ts.Expression>();
@@ -61,6 +61,6 @@ export const NetworkingConnectMacro: CallMacro = {
 			generatedGuards.pop();
 		}
 
-		return f.update.call(node, node.expression, [event, cb, generatedGuards]);
+		return f.update.call(node, node.expression, [event, state.transform(cb), generatedGuards]);
 	},
 };

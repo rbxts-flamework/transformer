@@ -13,32 +13,10 @@ export function transformClassDeclaration(state: TransformState, node: ts.ClassD
 	const classInfo = state.classes.get(symbol);
 	if (!classInfo) return state.transform(node);
 
-	const fields: ts.ObjectLiteralElementLike[] = [];
+	const fields: [string, f.ConvertableExpression][] = [];
 
-	fields.push(f.propertyDeclaration("identifier", state.getUid(node)));
-	fields.push(f.propertyDeclaration("isExternal", classInfo.isExternal));
-
-	fields.push(
-		f.propertyDeclaration(
-			"decorators",
-			classInfo.decorators
-				.filter((x): x is DecoratorWithNodes => x.type === "WithNodes")
-				.map((x) => {
-					const id = state.getUid(x.declaration);
-
-					const config = x.isFlameworkDecorator
-						? generateFlameworkConfig(
-								state,
-								node,
-								x,
-								f.is.object(x.arguments[0]) ? x.arguments[0] : f.object([]),
-						  )
-						: f.object({ type: "Arbitrary", arguments: x.arguments });
-
-					return f.object([f.propertyDeclaration("identifier", id), f.propertyDeclaration("config", config)]);
-				}),
-		),
-	);
+	fields.push(["identifier", state.getUid(node)]);
+	fields.push(["flamework:isExternal", classInfo.isExternal]);
 
 	const constructor = node.members.find((x): x is ts.ConstructorDeclaration => f.is.constructor(x));
 	if (constructor) {
@@ -53,7 +31,7 @@ export function transformClassDeclaration(state: TransformState, node: ts.ClassD
 			constructorDependencies.push(state.getUid(declaration));
 		}
 		if (constructor.parameters.length > 0) {
-			fields.push(f.propertyDeclaration("dependencies", constructorDependencies));
+			fields.push(["flamework:dependencies", constructorDependencies]);
 		}
 	}
 
@@ -73,15 +51,44 @@ export function transformClassDeclaration(state: TransformState, node: ts.ClassD
 			}
 		}
 		if (implementClauses.length > 0) {
-			fields.push(f.propertyDeclaration("implements", f.array(implementClauses, false)));
+			fields.push(["flamework:implements", f.array(implementClauses, false)]);
 		}
 	}
 
-	const importIdentifier = state.addFileImport(state.getSourceFile(node), "@rbxts/flamework", "Flamework");
-	return [
-		state.transform(f.update.classDeclaration(node, node.name, node.members, undefined)),
-		f.statement(f.call(f.field(importIdentifier, "registerMetadata"), [node.name, f.object(fields)])),
-	];
+	const decorators = classInfo.decorators.filter((x): x is DecoratorWithNodes => x.type === "WithNodes");
+	const decoratorIds = new Array<string>();
+	const decoratorConfigs = new Map<string, ts.Expression>();
+	for (const decorator of decorators) {
+		const id = state.getUid(decorator.declaration);
+		const config = decorator.isFlameworkDecorator
+			? generateFlameworkConfig(
+					state,
+					node,
+					decorator,
+					f.is.object(decorator.arguments[0]) ? decorator.arguments[0] : f.object([]),
+			  )
+			: f.object({ type: "Arbitrary", arguments: decorator.arguments });
+
+		decoratorIds.push(id);
+		decoratorConfigs.set(id, config);
+	}
+
+	fields.push(["flamework:decorators", decoratorIds]);
+	for (const [id, config] of decoratorConfigs) {
+		fields.push([`flamework:decorators.${id}`, config]);
+	}
+
+	const importIdentifier = state.addFileImport(state.getSourceFile(node), "@rbxts/flamework", "Reflect");
+	const realFields = fields.map(([name, value]) =>
+		f.statement(f.call(f.field(importIdentifier, "defineMetadata"), [node.name!, name, value])),
+	);
+	ts.addSyntheticLeadingComment(
+		realFields[0],
+		ts.SyntaxKind.SingleLineCommentTrivia,
+		`(Flamework) ${node.name.text} metadata`,
+	);
+
+	return [state.transform(f.update.classDeclaration(node, node.name, node.members, undefined)), ...realFields];
 }
 
 function calculateOmittedGuards(
