@@ -82,6 +82,13 @@ export function buildGuardFromType(state: TransformState, file: ts.SourceFile, t
 	const diagnosticsLocation = getDeclarationOfType(type) ?? file;
 	const tId = state.addFileImport(file, "@rbxts/t", "t");
 
+	if ((type.flags & ts.TypeFlags.TypeVariable) !== 0) {
+		const constraint = type.checker.getBaseConstraintOfType(type);
+		if (!constraint) Diagnostics.error(diagnosticsLocation, "could not find constraint of type parameter");
+
+		return buildGuardFromType(state, file, constraint);
+	}
+
 	if (isInstanceType(type)) {
 		const instanceType = getInstanceTypeFromType(file, type);
 		const additionalGuards = new Array<ts.PropertyAssignment>();
