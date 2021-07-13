@@ -270,5 +270,5 @@ function isObjectType(type: ts.Type): type is ts.InterfaceType {
 }
 
 function isInstanceType(type: ts.Type) {
-	return type.getProperties().some((x) => x.name === "_nominal_Instance");
+	return type.getProperty("_nominal_Instance") !== undefined;
 }
