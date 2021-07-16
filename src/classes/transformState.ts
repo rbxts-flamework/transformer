@@ -46,6 +46,15 @@ export interface TransformerConfig {
 	 * enable this in games.
 	 */
 	preloadIds?: boolean;
+
+	/**
+	 * Whether to enable flamework's obfuscation.
+	 *
+	 * This comprises of:
+	 * 1. random event names
+	 * 2. shortened ids
+	 */
+	obfuscation?: boolean;
 }
 
 export class TransformState {
@@ -293,6 +302,10 @@ export class TransformState {
 		const newId = this.hash(this.buildInfo.getLatestId());
 		this.buildInfo.addIdentifier(internalId, newId);
 		return newId;
+	}
+
+	obfuscateText(text: string, context?: string) {
+		return this.config.obfuscation ? this.buildInfo.hashString(text, context) : text;
 	}
 
 	public hasErrors = false;

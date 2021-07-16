@@ -120,6 +120,10 @@ export namespace f {
 		return factory.createBinaryExpression(toExpression(left), op, toExpression(right));
 	}
 
+	export function elementAccessExpression(expression: ConvertableExpression, index: ConvertableExpression) {
+		return factory.createElementAccessExpression(toExpression(expression), toExpression(index));
+	}
+
 	/// Statements
 	/// Declarations
 
@@ -189,6 +193,22 @@ export namespace f {
 
 	export function qualifiedNameType(left: ts.EntityName, right: string | ts.Identifier) {
 		return factory.createQualifiedName(left, right);
+	}
+
+	export function typeLiteralType(members: ts.TypeElement[]) {
+		return factory.createTypeLiteralNode(members);
+	}
+
+	export function literalType(expr: ts.LiteralTypeNode["literal"]) {
+		return factory.createLiteralTypeNode(expr);
+	}
+
+	export function propertySignatureType(name: string | ts.PropertyName, type: ts.TypeNode) {
+		return factory.createPropertySignature(undefined, name, undefined, type);
+	}
+
+	export function indexedAccessType(left: ts.TypeNode, right: ts.TypeNode) {
+		return factory.createIndexedAccessTypeNode(left, right);
 	}
 
 	export namespace is {
@@ -339,6 +359,26 @@ export namespace f {
 
 		export function object(node: ts.ObjectLiteralExpression, properties?: ts.ObjectLiteralElementLike[]) {
 			return factory.updateObjectLiteralExpression(node, properties ?? node.properties);
+		}
+
+		export function propertyAccessExpression(
+			node: ts.PropertyAccessExpression,
+			expression: ConvertableExpression,
+			name: ts.MemberName | string,
+		) {
+			return factory.updatePropertyAccessExpression(
+				node,
+				toExpression(expression),
+				typeof name === "string" ? f.identifier(name) : name,
+			);
+		}
+
+		export function elementAccessExpression(
+			node: ts.ElementAccessExpression,
+			expression: ConvertableExpression,
+			name: ConvertableExpression,
+		) {
+			return factory.updateElementAccessExpression(node, toExpression(expression), toExpression(name));
 		}
 
 		/// Statements

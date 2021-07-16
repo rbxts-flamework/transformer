@@ -1,5 +1,6 @@
 import ts from "typescript";
 import { Diagnostics } from "../../../classes/diagnostics";
+import { TransformState } from "../../../classes/transformState";
 import { f } from "../../../util/factory";
 import { buildGuardFromType } from "../../../util/functions/buildGuardFromType";
 import { CallMacro } from "../macro";
@@ -40,19 +41,44 @@ export const FlameworkCreateEventMacro: CallMacro = {
 					const paramType = state.typeChecker.getTypeOfSymbolAtLocation(param, node);
 					guards.push(buildGuardFromType(state, state.getSourceFile(node), paramType));
 				}
-				assignments.push(f.propertyDeclaration(prop.name, guards));
+				assignments.push(f.propertyDeclaration(state.obfuscateText(prop.name, "remotes"), guards));
 			}
 
 			return assignments;
 		};
 
+		const obfuscatedServerTypeArg = createObfuscatedType(state, serverTypeArg, serverType);
+		const obfuscatedClientTypeArg = createObfuscatedType(state, clientTypeArg, clientType);
 		return f.as(
-			f.update.call(node, f.field(networking, "createEvent"), [
-				f.object(convertTypeToGuardArray(serverType, serverTypeArg)),
-				f.object(convertTypeToGuardArray(clientType, clientTypeArg)),
-				...node.arguments,
+			f.update.call(
+				node,
+				f.field(networking, "createEvent"),
+				[
+					f.object(convertTypeToGuardArray(serverType, serverTypeArg)),
+					f.object(convertTypeToGuardArray(clientType, clientTypeArg)),
+					...node.arguments,
+				],
+				[obfuscatedServerTypeArg, obfuscatedClientTypeArg],
+			),
+			f.referenceType(f.qualifiedNameType(networking, "EventType"), [
+				obfuscatedServerTypeArg,
+				obfuscatedClientTypeArg,
 			]),
-			f.referenceType(f.qualifiedNameType(networking, "EventType"), [serverTypeArg, clientTypeArg]),
 		);
 	},
 };
+
+function createObfuscatedType(state: TransformState, originType: ts.TypeNode, node: ts.Type) {
+	return state.config.obfuscation
+		? f.typeLiteralType(
+				node
+					.getProperties()
+					.map((x) =>
+						f.propertySignatureType(
+							f.string(state.obfuscateText(x.name, "remotes")),
+							f.indexedAccessType(originType, f.literalType(f.string(x.name))),
+						),
+					),
+		  )
+		: originType;
+}

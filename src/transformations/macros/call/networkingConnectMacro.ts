@@ -23,7 +23,15 @@ export const NetworkingConnectMacro: CallMacro = {
 		if (customGuards !== undefined && !f.is.array(customGuards))
 			Diagnostics.error(customGuards, `Expected array or undefined`);
 
-		if (!cb.parameters.some((x) => x.type !== undefined)) return state.transform(node);
+		if (!cb.parameters.some((x) => x.type !== undefined)) {
+			if (state.config.obfuscation) {
+				const args: f.ConvertableExpression[] = [state.obfuscateText(event.text, "remotes"), cb];
+				if (customGuards) args.push(customGuards);
+				return state.transform(f.update.call(node, node.expression, args));
+			} else {
+				return state.transform(node);
+			}
+		}
 
 		const undefinedId = f.identifier("undefined");
 		const generatedGuards = new Array<ts.Expression>();
@@ -61,6 +69,10 @@ export const NetworkingConnectMacro: CallMacro = {
 			generatedGuards.pop();
 		}
 
-		return f.update.call(node, node.expression, [event, state.transform(cb), generatedGuards]);
+		return f.update.call(node, node.expression, [
+			state.obfuscateText(event.text, "remotes"),
+			state.transform(cb),
+			generatedGuards,
+		]);
 	},
 };
