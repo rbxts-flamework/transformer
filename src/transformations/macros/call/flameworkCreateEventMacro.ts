@@ -23,6 +23,9 @@ export const FlameworkCreateEventMacro: CallMacro = {
 		if (!serverType) Diagnostics.error(serverTypeArg, `Could not get type`);
 		if (!clientType) Diagnostics.error(clientTypeArg, `Could not get type`);
 
+		const parentDeclaration = node.parent;
+		if (!f.is.namedDeclaration(parentDeclaration)) return Diagnostics.error(node, `Must be under a declaration.`);
+
 		const networking = state.addFileImport(state.getSourceFile(node), "@rbxts/flamework", "Networking");
 
 		const convertTypeToGuardArray = (type: ts.Type, source: ts.Node) => {
@@ -54,6 +57,7 @@ export const FlameworkCreateEventMacro: CallMacro = {
 				node,
 				f.field(networking, "createEvent"),
 				[
+					state.getUid(parentDeclaration),
 					f.object(convertTypeToGuardArray(serverType, serverTypeArg)),
 					f.object(convertTypeToGuardArray(clientType, clientTypeArg)),
 					...node.arguments,
