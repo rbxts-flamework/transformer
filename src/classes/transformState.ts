@@ -299,6 +299,10 @@ export class TransformState {
 			return internalId;
 		}
 
+		if (!this.config.obfuscation) {
+			return internalId;
+		}
+
 		const newId = this.hash(this.buildInfo.getLatestId());
 		this.buildInfo.addIdentifier(internalId, newId);
 		return newId;
