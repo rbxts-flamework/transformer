@@ -4,7 +4,7 @@ import fs from "fs";
 import ajv from "ajv";
 import crypto from "crypto";
 import { v4 as uuid } from "uuid";
-import { PACKAGE_ROOT } from "./rojoResolver/constants";
+import { PACKAGE_ROOT, PKG_VERSION } from "./rojoResolver/constants";
 
 interface BuildDecorator {
 	name: string;
@@ -109,10 +109,9 @@ export class BuildInfo {
 	private identifiersLookup = new Map<string, string>();
 	constructor(public buildInfoPath: string, buildInfo?: FlameworkBuildInfo) {
 		// eslint-disable-next-line @typescript-eslint/no-var-requires
-		const flameworkConfig = require(path.join(PACKAGE_ROOT, "package.json"));
 		this.buildInfo = buildInfo ?? {
 			version: 1,
-			flameworkVersion: flameworkConfig.version,
+			flameworkVersion: PKG_VERSION,
 			identifiers: {},
 		};
 		if (buildInfo) {
@@ -139,6 +138,13 @@ export class BuildInfo {
 		this.buildInfo.salt = salt;
 
 		return salt;
+	}
+
+	/**
+	 * Retrieves the version of flamework that this project was originally compiled on.
+	 */
+	getFlameworkVersion() {
+		return this.buildInfo.flameworkVersion;
 	}
 
 	/**

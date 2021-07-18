@@ -18,6 +18,7 @@ import Hashids from "hashids";
 import { ClassInfo } from "../types/classes";
 import { CallMacro } from "../transformations/macros/macro";
 import { CALL_MACROS } from "../transformations/macros/call/callMacros";
+import { isCleanBuildDirectory } from "../util/functions/isCleanBuildDirectory";
 
 const IGNORE_RBXTS_REGEX = /node_modules\/@rbxts\/(compiler-types|types)\/.*\.d\.ts$/;
 
@@ -78,7 +79,7 @@ export class TransformState {
 
 	private setupBuildInfo() {
 		let baseBuildInfo = BuildInfo.fromDirectory(this.currentDirectory);
-		if (!baseBuildInfo) {
+		if (!baseBuildInfo || (Cache.isInitialCompile && isCleanBuildDirectory(this.options))) {
 			if (this.options.incremental && this.options.tsBuildInfoFile) {
 				if (ts.sys.fileExists(this.options.tsBuildInfoFile)) {
 					throw new Error(`Flamework cannot be built in a dirty environment, please delete your tsbuildinfo`);
@@ -152,6 +153,8 @@ export class TransformState {
 
 		this.packageName = packageJson.name;
 		this.isGame = !this.packageName.startsWith("@");
+
+		Cache.isInitialCompile = false;
 	}
 
 	private areMacrosSetup = false;
