@@ -77,14 +77,14 @@ export class TransformState {
 	public callMacros = new Map<ts.Symbol, CallMacro>();
 
 	private setupBuildInfo() {
-		let baseBuildInfo = BuildInfo.fromDirectory(this.currentDirectory);
+		let baseBuildInfo = BuildInfo.fromDirectory(this.outDir);
 		if (!baseBuildInfo) {
 			if (this.options.incremental && this.options.tsBuildInfoFile) {
 				if (ts.sys.fileExists(this.options.tsBuildInfoFile)) {
 					throw new Error(`Flamework cannot be built in a dirty environment, please delete your tsbuildinfo`);
 				}
 			}
-			baseBuildInfo = new BuildInfo(path.join(this.currentDirectory, "flamework.build"));
+			baseBuildInfo = new BuildInfo(path.join(this.outDir, "flamework.build"));
 		}
 		this.buildInfo = baseBuildInfo;
 
@@ -278,9 +278,16 @@ export class TransformState {
 
 		if (isPathDescendantOf(filePath, this.pathTranslator.rootDir)) {
 			const outputPath = this.pathTranslator.getOutputPath(filePath).replace(/(\.lua)$/, "");
-			const relativePath = path.relative(this.currentDirectory, outputPath);
+			const relativePath = path.relative(this.outDir, outputPath);
 			const internalId = `${result.name}:${relativePath.replace(/\\/g, "/")}@${fullName}`;
 			return extra ? [false, internalId] : internalId;
+		}
+
+		const pkgBuildInfo = this.buildInfo.getBuildInfoForFile(filePath);
+		if (pkgBuildInfo) {
+			const relativePath = path.relative(pkgBuildInfo.buildInfoDirectory, filePath.replace(/(\.d)?.ts$/, ""));
+			const internalId = `${result.name}:${relativePath.replace(/\\/g, "/")}@${fullName}`;
+			return extra ? [true, internalId] : internalId;
 		}
 
 		const relativePath = path.relative(directory, filePath.replace(/(\.d)?.ts$/, ""));

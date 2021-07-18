@@ -104,9 +104,12 @@ export class BuildInfo {
 		return candidates;
 	}
 
+	public buildInfoDirectory: string;
+
 	private buildInfo: FlameworkBuildInfo;
 	private buildInfos: BuildInfo[] = [];
 	private identifiersLookup = new Map<string, string>();
+	private buildInfoForFile = new Map<string, BuildInfo>();
 	constructor(public buildInfoPath: string, buildInfo?: FlameworkBuildInfo) {
 		// eslint-disable-next-line @typescript-eslint/no-var-requires
 		const flameworkConfig = require(path.join(PACKAGE_ROOT, "package.json"));
@@ -120,6 +123,7 @@ export class BuildInfo {
 				this.identifiersLookup.set(id, internalId);
 			}
 		}
+		this.buildInfoDirectory = path.dirname(buildInfoPath);
 	}
 
 	/**
@@ -147,6 +151,32 @@ export class BuildInfo {
 	 */
 	addBuildInfo(buildInfo: BuildInfo) {
 		this.buildInfos.push(buildInfo);
+	}
+
+	/**
+	 * Looks for the closest BuildInfo to the file.
+	 * @param file The file
+	 */
+	getBuildInfoForFile(file: string) {
+		const cached = this.buildInfoForFile.get(file);
+		if (cached) {
+			return cached;
+		}
+
+		let currentBuildInfo: BuildInfo | undefined;
+		let currentSegments = 0;
+		for (const buildInfo of this.buildInfos) {
+			const buildInfoDirectory = path.dirname(buildInfo.buildInfoPath);
+			const segments = buildInfoDirectory.split(path.sep);
+
+			if (segments.length > currentSegments) {
+				currentSegments = segments.length;
+				currentBuildInfo = buildInfo;
+			}
+		}
+
+		if (currentBuildInfo) this.buildInfoForFile.set(file, currentBuildInfo);
+		return currentBuildInfo;
 	}
 
 	/**
