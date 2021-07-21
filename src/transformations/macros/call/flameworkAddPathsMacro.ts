@@ -21,7 +21,7 @@ export const FlameworkAddPathsMacro: CallMacro = {
 	transform(state, node) {
 		if (!state.rojoResolver) Diagnostics.error(node, "addPaths was used but Rojo could not be resolved");
 
-		const importId = state.addFileImport(state.getSourceFile(node), "@rbxts/flamework", "Flamework");
+		const importId = state.addFileImport(state.getSourceFile(node), "@flamework/core", "Flamework");
 		const convertedArguments: ts.Expression[] = [];
 
 		for (const arg of node.arguments) {

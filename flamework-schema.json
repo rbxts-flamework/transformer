@@ -9,6 +9,9 @@
 		"flameworkVersion": {
 			"type": "string"
 		},
+		"identifierPrefix": {
+			"type": "string"
+		},
 		"identifiers": {
 			"type": "object",
 			"additionalProperties": {

@@ -7,7 +7,8 @@ import { CallMacro } from "../macro";
 
 export const FlameworkCreateEventMacro: CallMacro = {
 	getSymbol(state) {
-		return state.symbolProvider.flamework.get("createEvent");
+		if (!state.symbolProvider.networking) return [];
+		return state.symbolProvider.networking.get("createEvent");
 	},
 
 	transform(state, node) {
@@ -26,7 +27,7 @@ export const FlameworkCreateEventMacro: CallMacro = {
 		const parentDeclaration = node.parent;
 		if (!f.is.namedDeclaration(parentDeclaration)) return Diagnostics.error(node, `Must be under a declaration.`);
 
-		const networking = state.addFileImport(state.getSourceFile(node), "@rbxts/flamework", "Networking");
+		const networking = state.addFileImport(state.getSourceFile(node), "@flamework/networking", "Networking");
 
 		const convertTypeToGuardArray = (type: ts.Type, source: ts.Node) => {
 			const assignments = new Array<ts.PropertyAssignment>();
@@ -55,12 +56,12 @@ export const FlameworkCreateEventMacro: CallMacro = {
 		return f.as(
 			f.update.call(
 				node,
-				f.field(networking, "createEvent"),
+				f.field(networking, "_createEvent"),
 				[
 					state.getUid(parentDeclaration),
 					f.object(convertTypeToGuardArray(serverType, serverTypeArg)),
 					f.object(convertTypeToGuardArray(clientType, clientTypeArg)),
-					...node.arguments,
+					...obfuscateMiddleware(state, node.arguments),
 				],
 				[obfuscatedServerTypeArg, obfuscatedClientTypeArg],
 			),
@@ -71,6 +72,32 @@ export const FlameworkCreateEventMacro: CallMacro = {
 		);
 	},
 };
+
+function obfuscateMiddleware(state: TransformState, args: ts.NodeArray<ts.Expression>) {
+	const newArgs = new Array<ts.Expression>();
+	for (const expression of args) {
+		if (f.is.object(expression)) {
+			newArgs.push(
+				f.update.object(
+					expression,
+					expression.properties.map((prop) => {
+						if (f.is.propertyAssignmentDeclaration(prop) && "text" in prop.name) {
+							return f.update.propertyAssignmentDeclaration(
+								prop,
+								prop.initializer,
+								f.string(state.obfuscateText(prop.name.text, "remotes")),
+							);
+						}
+						return prop;
+					}),
+				),
+			);
+		} else {
+			newArgs.push(expression);
+		}
+	}
+	return newArgs;
+}
 
 function createObfuscatedType(state: TransformState, originType: ts.TypeNode, node: ts.Type) {
 	return state.config.obfuscation

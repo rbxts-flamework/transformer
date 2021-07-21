@@ -17,7 +17,7 @@ export const FlameworkImplementsMacro: CallMacro = {
 		const declaration = symbol.declarations?.[0];
 		if (!declaration) Diagnostics.error(firstType, `Could not find declaration for type`);
 
-		const importId = state.addFileImport(state.getSourceFile(node), "@rbxts/flamework", "Flamework");
+		const importId = state.addFileImport(state.getSourceFile(node), "@flamework/core", "Flamework");
 		return f.call(
 			f.field(importId, "_implements"),
 			[node.arguments[0], state.getUid(declaration)],

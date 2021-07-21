@@ -8,7 +8,7 @@ export const DependencyMacro: CallMacro = {
 	},
 
 	transform(state, node) {
-		const importId = state.addFileImport(state.getSourceFile(node), "@rbxts/flamework", "Flamework");
+		const importId = state.addFileImport(state.getSourceFile(node), "@flamework/core", "Flamework");
 		const firstArg = node.arguments[0];
 		const firstType = node.typeArguments?.[0];
 

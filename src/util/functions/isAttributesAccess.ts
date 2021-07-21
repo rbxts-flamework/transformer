@@ -8,6 +8,7 @@ import { f } from "../factory";
  */
 export function isAttributesAccess(state: TransformState, expression: ts.Node): expression is ts.AccessExpression {
 	if (!f.is.accessExpression(expression)) return false;
+	if (!state.symbolProvider.componentsFile) return false;
 
 	const baseComponent = state.symbolProvider.componentsFile.get("BaseComponent");
 	const lhs = state.getSymbol(expression.expression);

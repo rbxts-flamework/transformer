@@ -7,6 +7,7 @@ export interface Cache {
 	isInitialCompile: boolean;
 	shouldView: Map<string, boolean>;
 	realPath: Map<string, string>;
+	moduleResolution: Map<string, string | false>;
 }
 
 /**
@@ -16,4 +17,5 @@ export const Cache: Cache = {
 	isInitialCompile: true,
 	shouldView: new Map(),
 	realPath: new Map(),
+	moduleResolution: new Map(),
 };
