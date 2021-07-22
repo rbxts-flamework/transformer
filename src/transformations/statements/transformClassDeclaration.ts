@@ -78,7 +78,7 @@ export function transformClassDeclaration(state: TransformState, node: ts.ClassD
 		fields.push([`flamework:decorators.${id}`, config]);
 	}
 
-	const importIdentifier = state.addFileImport(state.getSourceFile(node), "@rbxts/flamework", "Reflect");
+	const importIdentifier = state.addFileImport(state.getSourceFile(node), "@flamework/core", "Reflect");
 	const realFields = fields.map(([name, value]) =>
 		f.statement(f.call(f.field(importIdentifier, "defineMetadata"), [node.name!, name, value])),
 	);
@@ -136,7 +136,7 @@ function updateAttributeGuards(
 	properties: ts.ObjectLiteralElementLike[],
 ) {
 	const type = state.typeChecker.getTypeAtLocation(node);
-	const baseComponent = state.symbolProvider.componentsFile.get("BaseComponent");
+	const baseComponent = state.symbolProvider.componentsFile!.get("BaseComponent");
 
 	const property = type.getProperty("attributes");
 	if (!property || property.parent !== baseComponent) return;
@@ -172,7 +172,7 @@ function updateInstanceGuard(
 	properties: ts.ObjectLiteralElementLike[],
 ) {
 	const type = state.typeChecker.getTypeAtLocation(node);
-	const baseComponent = state.symbolProvider.componentsFile.get("BaseComponent");
+	const baseComponent = state.symbolProvider.componentsFile!.get("BaseComponent");
 
 	const property = type.getProperty("instance");
 	if (!property || property.parent !== baseComponent) return;

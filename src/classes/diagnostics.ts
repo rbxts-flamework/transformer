@@ -12,7 +12,7 @@ function createDiagnosticAtLocation(
 		messageText,
 		start: node.getStart(),
 		length: node.getWidth(),
-		code: " @rbxts/flamework" as never,
+		code: " @flamework/core" as never,
 	};
 }
 

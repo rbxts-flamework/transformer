@@ -4,7 +4,9 @@ import { CallMacro } from "../macro";
 
 export const NetworkingPredictMacro: CallMacro = {
 	getSymbol(state) {
-		const networking = state.symbolProvider.getFile("@rbxts/flamework/networking").getNamespace("Networking");
+		const networking = state.symbolProvider.networkingImpl;
+		if (!networking) return [];
+
 		return [networking.getType("ClientHandler").get("predict")];
 	},
 

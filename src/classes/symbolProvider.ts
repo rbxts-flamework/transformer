@@ -8,6 +8,7 @@ import { getPackageJson } from "../util/functions/getPackageJson";
 import { Logger } from "./logger";
 import { f } from "../util/factory";
 import chalk from "chalk";
+import { Cache } from "../util/cache";
 
 const EXCLUDED_NAME_DIR = new Set(["src/", "lib/", "out/"]);
 
@@ -15,26 +16,28 @@ export class SymbolProvider {
 	public fileSymbols = new Map<string, FileSymbol>();
 
 	public flameworkFile!: FileSymbol;
-	public componentsFile!: FileSymbol;
+	public componentsFile?: FileSymbol;
+	public networkingFile?: FileSymbol;
 
 	public flamework!: NamespaceSymbol;
-	public components!: ClassSymbol;
+	public components?: ClassSymbol;
+	public networking?: NamespaceSymbol;
+	public networkingImpl?: NamespaceSymbol;
 
 	constructor(public state: TransformState) {}
 
-	private rbxtsDir = path.join(this.state.currentDirectory, "node_modules", "@rbxts");
-	private flameworkDir = this.resolveFlameworkDir();
+	private resolveModuleDir(moduleName: string) {
+		const modulePath = Cache.moduleResolution.get(moduleName);
+		if (modulePath !== undefined) return modulePath || undefined;
 
-	private resolveFlameworkDir() {
-		if (this.state.config.$rbxpackmode$) {
-			return path.join(this.state.currentDirectory, "src");
-		} else {
-			const module = ts.resolveModuleName("@rbxts/flamework", this.state.srcDir, this.state.options, ts.sys);
-			const resolvedModule = module.resolvedModule;
-			assert(resolvedModule);
-
-			return fs.realpathSync(path.join(resolvedModule.resolvedFileName, "../"));
+		const module = ts.resolveModuleName(moduleName, this.state.srcDir, this.state.options, ts.sys);
+		const resolvedModule = module.resolvedModule;
+		if (resolvedModule) {
+			const modulePath = fs.realpathSync(path.join(resolvedModule.resolvedFileName, "../"));
+			Cache.moduleResolution.set(moduleName, modulePath);
+			return modulePath;
 		}
+		Cache.moduleResolution.set(moduleName, false);
 	}
 
 	findFile(name: string) {
@@ -85,12 +88,23 @@ export class SymbolProvider {
 		return fileSymbol;
 	}
 
+	private flameworkDir = this.resolveModuleDir("@flamework/core");
+	private componentsDir = this.resolveModuleDir("@flamework/components");
+	private networkingDir = this.resolveModuleDir("@flamework/networking");
 	private isFileInteresting(file: ts.SourceFile) {
 		if (this.state.config.$rbxpackmode$ && isPathDescendantOf(file.fileName, this.state.srcDir)) {
 			return true;
 		}
 
-		if (isPathDescendantOf(file.fileName, this.flameworkDir)) {
+		if (this.flameworkDir && isPathDescendantOf(file.fileName, this.flameworkDir)) {
+			return true;
+		}
+
+		if (this.componentsDir && isPathDescendantOf(file.fileName, this.componentsDir)) {
+			return true;
+		}
+
+		if (this.networkingDir && isPathDescendantOf(file.fileName, this.networkingDir)) {
 			return true;
 		}
 
@@ -98,10 +112,15 @@ export class SymbolProvider {
 	}
 
 	private finalize() {
-		this.flameworkFile = this.getFile("@rbxts/flamework/flamework");
-		this.componentsFile = this.getFile("@rbxts/flamework/components");
+		this.flameworkFile = this.getFile("@flamework/core/flamework");
+		this.componentsFile = this.findFile("@flamework/components/index");
+		this.networkingFile = this.findFile("@flamework/networking/index");
 
-		if (!this.flameworkFile.namespaces.has("Flamework") || !this.componentsFile.classes.has("Components")) {
+		if (
+			!this.flameworkFile.namespaces.has("Flamework") ||
+			(this.componentsFile && !this.componentsFile.classes.has("Components")) ||
+			(this.networkingFile && !this.networkingFile.namespaces.has("Networking"))
+		) {
 			throw Logger.writeLine(
 				`${chalk.red("Failed to load! Symbols were not populated")}`,
 				"This is commonly caused by a TS version mismatch.",
@@ -111,7 +130,9 @@ export class SymbolProvider {
 		}
 
 		this.flamework = this.flameworkFile.getNamespace("Flamework");
-		this.components = this.componentsFile.getClass("Components");
+		this.components = this.componentsFile?.getClass("Components");
+		this.networking = this.networkingFile?.getNamespace("Networking");
+		this.networkingImpl = this.networkingFile?.getNamespace("NetworkingImpl");
 	}
 }
 

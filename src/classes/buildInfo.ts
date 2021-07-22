@@ -5,6 +5,7 @@ import ajv from "ajv";
 import crypto from "crypto";
 import { v4 as uuid } from "uuid";
 import { PACKAGE_ROOT, PKG_VERSION } from "./rojoResolver/constants";
+import { isPathDescendantOf } from "../util/functions/isPathDescendantOf";
 
 interface BuildDecorator {
 	name: string;
@@ -22,6 +23,7 @@ interface BuildClass {
 interface FlameworkBuildInfo {
 	version: number;
 	flameworkVersion: string;
+	identifierPrefix?: string;
 	salt?: string;
 	stringHashes?: { [key: string]: string };
 	identifiers: { [key: string]: string };
@@ -176,6 +178,14 @@ export class BuildInfo {
 		this.buildInfo.classes.push(classInfo);
 	}
 
+	getBuildInfoFromFile(fileName: string): BuildInfo | undefined {
+		for (const build of this.buildInfos) {
+			if (isPathDescendantOf(fileName, path.dirname(build.buildInfoPath))) {
+				return build;
+			}
+		}
+	}
+
 	/**
 	 * Get the random or incremental Id from the internalId.
 	 * @param internalId The internal, reproducible ID
@@ -236,5 +246,20 @@ export class BuildInfo {
 		const strUuid = uuid();
 		stringHashes[str] = strUuid;
 		return strUuid;
+	}
+
+	/**
+	 * Sets the prefix used for identifiers.
+	 * Used to generate IDs for packages.
+	 */
+	setIdentifierPrefix(prefix: string | undefined) {
+		this.buildInfo.identifierPrefix = prefix;
+	}
+
+	/**
+	 * Gets the prefixed used for identifiers.
+	 */
+	getIdentifierPrefix() {
+		return this.buildInfo.identifierPrefix;
 	}
 }

@@ -16,8 +16,10 @@ function transformNetworkEvent(
 	node: ts.PropertyAccessExpression | ts.ElementAccessExpression,
 	name?: string,
 ) {
+	const networking = state.symbolProvider.networkingImpl;
+	if (!networking) return;
+
 	const type = state.typeChecker.getTypeAtLocation(node);
-	const networking = state.symbolProvider.getFile("@rbxts/flamework/networking").getNamespace("Networking");
 	if (type.symbol !== networking.get("ServerMethod") && type.symbol !== networking.get("ClientMethod")) return;
 	if (!name) Diagnostics.error(node, `Expected string`);
 

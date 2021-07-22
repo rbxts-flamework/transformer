@@ -6,6 +6,8 @@ import { CallMacro } from "../macro";
 export const ComponentMethodMacro: CallMacro = {
 	getSymbol(state) {
 		const symbols = state.symbolProvider;
+		if (!symbols.components) return [];
+
 		return [
 			symbols.components.get("addComponent"),
 			symbols.components.get("removeComponent"),

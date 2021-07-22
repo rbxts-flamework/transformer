@@ -4,7 +4,6 @@ import { TransformState } from "../../classes/transformState";
 import { ClassInfo } from "../../types/classes";
 import { DecoratorInfo } from "../../types/decorators";
 import { f } from "../../util/factory";
-import { Logger } from "../../classes/logger";
 
 export function viewClassDeclaration(state: TransformState, node: ts.ClassDeclaration) {
 	const { symbolProvider } = state;
@@ -19,7 +18,7 @@ export function viewClassDeclaration(state: TransformState, node: ts.ClassDeclar
 	const flameworkDecorators = new Set([
 		symbolProvider.flameworkFile.get("Service"),
 		symbolProvider.flameworkFile.get("Controller"),
-		symbolProvider.flameworkFile.get("Component"),
+		symbolProvider.componentsFile?.get("Component"),
 	]);
 
 	if (node.decorators) {

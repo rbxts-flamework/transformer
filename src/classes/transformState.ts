@@ -141,12 +141,13 @@ export class TransformState {
 		public context: ts.TransformationContext,
 		public config: TransformerConfig,
 	) {
-		if (config.hashPrefix === "$" && !config.$rbxpackmode$) {
-			throw new Error(`The hashPrefix $ is used internally by @rbxts/flamework`);
+		if (config.hashPrefix?.startsWith("$") && !config.$rbxpackmode$) {
+			throw new Error(`The hashPrefix $ is used internally by Flamework`);
 		}
 
 		this.setupRojo();
 		this.setupBuildInfo();
+		this.buildInfo.setIdentifierPrefix(config.hashPrefix);
 
 		const { result: packageJson } = getPackageJson(this.currentDirectory);
 		assert(packageJson.name);
@@ -180,7 +181,7 @@ export class TransformState {
 	addFileImport(file: ts.SourceFile, importPath: string, name: string): ts.Identifier {
 		const symbolProvider = this.symbolProvider;
 
-		if (importPath === "@rbxts/flamework") {
+		if (importPath === "@flamework/core") {
 			if (
 				(file === symbolProvider.flameworkFile.file ||
 					this.getSymbol(file) === symbolProvider.flameworkFile.fileSymbol) &&
@@ -286,9 +287,21 @@ export class TransformState {
 			return extra ? [false, internalId] : internalId;
 		}
 
-		const relativePath = path.relative(directory, filePath.replace(/(\.d)?.ts$/, ""));
+		const relativePath = path.relative(directory, filePath.replace(/(\.d)?.ts$/, "").replace(/index$/, "init"));
 		const internalId = `${result.name}:${relativePath.replace(/\\/g, "/")}@${fullName}`;
 		return extra ? [true, internalId] : internalId;
+	}
+
+	/**
+	 * Format the internal id to be shorter, remove `out` part of path, and use hashPrefix.
+	 */
+	formatInternalid(internalId: string, hashPrefix = this.config.hashPrefix) {
+		const match = new RegExp(`^@.*/.*:(.+)@(.+)$`).exec(internalId);
+		if (!match) return internalId;
+
+		const [, path, name] = match;
+		const revisedPath = path.replace(/^(.*)[\/\\]/, "");
+		return `${hashPrefix}:${revisedPath}@${name}`;
 	}
 
 	getUid(node: ts.NamedDeclaration) {
@@ -299,14 +312,19 @@ export class TransformState {
 		// this is a package, and the package itself did not generate an id
 		// use the internal ID to prevent breakage between packages and games.
 		if (isPackage) {
+			const buildInfo = this.buildInfo.getBuildInfoFromFile(this.getSourceFile(node).fileName);
+			if (buildInfo) {
+				const prefix = buildInfo.getIdentifierPrefix();
+				if (prefix) {
+					return this.formatInternalid(internalId, prefix);
+				}
+			}
 			return internalId;
 		}
 
-		if (!this.config.obfuscation) {
-			return internalId;
-		}
-
-		const newId = this.hash(this.buildInfo.getLatestId());
+		const newId = !this.config.obfuscation
+			? this.formatInternalid(internalId)
+			: this.hash(this.buildInfo.getLatestId());
 		this.buildInfo.addIdentifier(internalId, newId);
 		return newId;
 	}
