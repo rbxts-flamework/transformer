@@ -19,6 +19,7 @@ import { ClassInfo } from "../types/classes";
 import { CallMacro } from "../transformations/macros/macro";
 import { CALL_MACROS } from "../transformations/macros/call/callMacros";
 import { isCleanBuildDirectory } from "../util/functions/isCleanBuildDirectory";
+import { parseCommandLine } from "../util/functions/parseCommandLine";
 
 const IGNORE_RBXTS_REGEX = /node_modules\/@rbxts\/(compiler-types|types)\/.*\.d\.ts$/;
 
@@ -59,7 +60,8 @@ export interface TransformerConfig {
 }
 
 export class TransformState {
-	public currentDirectory = this.program.getCurrentDirectory();
+	public parsedCommandLine = parseCommandLine();
+	public currentDirectory = this.parsedCommandLine.project;
 	public options = this.program.getCompilerOptions();
 	public srcDir = this.options.rootDir ?? this.currentDirectory;
 	public outDir = this.options.outDir ?? this.currentDirectory;
@@ -121,7 +123,7 @@ export class TransformState {
 	private setupRojo() {
 		this.pathTranslator = new PathTranslator(this.srcDir, this.outDir, undefined, false);
 
-		const rojoConfig = RojoResolver.findRojoConfigFilePath(this.program.getCurrentDirectory());
+		const rojoConfig = RojoResolver.findRojoConfigFilePath(this.currentDirectory);
 		if (rojoConfig) {
 			const rojoContents = fs.readFileSync(rojoConfig, { encoding: "ascii" });
 			const sum = crypto.createHash("md5").update(rojoContents).digest("hex");
