@@ -30,7 +30,8 @@ export class SymbolProvider {
 		const modulePath = Cache.moduleResolution.get(moduleName);
 		if (modulePath !== undefined) return modulePath || undefined;
 
-		const module = ts.resolveModuleName(moduleName, this.state.srcDir, this.state.options, ts.sys);
+		const dummyFile = path.join(this.state.srcDir, "dummy.ts");
+		const module = ts.resolveModuleName(moduleName, dummyFile, this.state.options, ts.sys);
 		const resolvedModule = module.resolvedModule;
 		if (resolvedModule) {
 			const modulePath = fs.realpathSync(path.join(resolvedModule.resolvedFileName, "../"));
