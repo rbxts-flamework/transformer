@@ -244,7 +244,10 @@ export class TransformState {
 	}
 
 	getSourceFile(node: ts.Node) {
-		return ts.getSourceFileOfNode(node);
+		const parseNode = ts.getParseTreeNode(node);
+		if (!parseNode) throw new Error(`Could not find parse tree node`);
+
+		return ts.getSourceFileOfNode(parseNode);
 	}
 
 	getSymbol(node: ts.Node, followAlias = true): ts.Symbol | undefined {
