@@ -1,9 +1,9 @@
 import ts from "typescript";
 import path from "path";
-import { f } from "../../../util/factory";
-import { CallMacro } from "../macro";
-import { Diagnostics } from "../../../classes/diagnostics";
-import { TransformState } from "../../../classes/transformState";
+import { f } from "../../../../../util/factory";
+import { CallMacro } from "../../../macro";
+import { Diagnostics } from "../../../../../classes/diagnostics";
+import { TransformState } from "../../../../../classes/transformState";
 
 function getPathFromSpecifier(state: TransformState, source: ts.SourceFile, hostDir: string, specifier: string) {
 	const sourceDir = path.dirname(source.fileName);

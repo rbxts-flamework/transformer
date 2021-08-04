@@ -1,9 +1,9 @@
 import ts from "typescript";
-import { Diagnostics } from "../../../classes/diagnostics";
-import { relocateDiagnostic } from "../../../util/diagnosticsUtils";
-import { f } from "../../../util/factory";
-import { buildGuardFromType } from "../../../util/functions/buildGuardFromType";
-import { CallMacro } from "../macro";
+import { Diagnostics } from "../../../../classes/diagnostics";
+import { relocateDiagnostic } from "../../../../util/diagnosticsUtils";
+import { f } from "../../../../util/factory";
+import { buildGuardFromType } from "../../../../util/functions/buildGuardFromType";
+import { CallMacro } from "../../macro";
 
 export const NetworkingConnectMacro: CallMacro = {
 	getSymbol(state) {

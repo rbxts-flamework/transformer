@@ -1,6 +1,6 @@
-import { Diagnostics } from "../../../classes/diagnostics";
-import { f } from "../../../util/factory";
-import { CallMacro } from "../macro";
+import { Diagnostics } from "../../../../../classes/diagnostics";
+import { f } from "../../../../../util/factory";
+import { CallMacro } from "../../../macro";
 
 export const FlameworkHashMacro: CallMacro = {
 	getSymbol(state) {

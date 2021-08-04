@@ -1,30 +1,33 @@
 import { CallMacro } from "../macro";
-import { ComponentMethodMacro } from "./componentMethodMacro";
-import { DependencyMacro } from "./dependencyMacro";
-import { FlameworkAddPathsMacro } from "./flameworkAddPathsMacro";
-import { FlameworkCreateEventMacro } from "./flameworkCreateEventMacro";
-import { FlameworkCreateGuardMacro } from "./flameworkCreateGuardMacro";
-import { FlameworkHashMacro } from "./flameworkHashMacro";
-import { FlameworkIdMacro } from "./flameworkIdMacro";
-import { FlameworkImplementsMacro } from "./flameworkImplementsMacro";
-import { NetworkingConnectMacro } from "./networkingConnectMacro";
-import { NetworkingPredictMacro } from "./networkingPredictMacro";
-import { TestingPatchDependencyMacro } from "./testingPatchDependencyMacro";
+import { ComponentGetAllComponentsMacro } from "./components/getAllComponentsMacro";
+import { ComponentMethodMacro } from "./components/methodMacro";
+import { DependencyMacro } from "./core/dependencyMacro";
+import { FlameworkAddPathsMacro } from "./core/flamework/addPathsMacro";
+import { NetworkingCreateEventMacro } from "./networking/createEventMacro";
+import { FlameworkCreateGuardMacro } from "./core/flamework/createGuardMacro";
+import { FlameworkHashMacro } from "./core/flamework/hashMacro";
+import { FlameworkIdMacro } from "./core/flamework/flameworkIdMacro";
+import { FlameworkImplementsMacro } from "./core/flamework/implementsMacro";
+import { NetworkingConnectMacro } from "./networking/connectMacro";
+import { NetworkingPredictMacro } from "./networking/predictMacro";
+import { TestingPatchDependencyMacro } from "./core/flamework/testingPatchDependencyMacro";
 
 export const CALL_MACROS = new Array<CallMacro>(
-	DependencyMacro,
-
+	// @flamework/components
 	ComponentMethodMacro,
+	ComponentGetAllComponentsMacro,
 
+	// @flamework/networking
 	NetworkingConnectMacro,
 	NetworkingPredictMacro,
+	NetworkingCreateEventMacro,
 
-	TestingPatchDependencyMacro,
-
+	// @flamework/core
+	DependencyMacro,
 	FlameworkIdMacro,
-	FlameworkAddPathsMacro,
-	FlameworkCreateGuardMacro,
-	FlameworkCreateEventMacro,
-	FlameworkImplementsMacro,
 	FlameworkHashMacro,
+	FlameworkAddPathsMacro,
+	FlameworkImplementsMacro,
+	FlameworkCreateGuardMacro,
+	TestingPatchDependencyMacro,
 );

@@ -1,7 +1,7 @@
-import { Diagnostics } from "../../../classes/diagnostics";
-import { relocateDiagnostic } from "../../../util/diagnosticsUtils";
-import { buildGuardFromType } from "../../../util/functions/buildGuardFromType";
-import { CallMacro } from "../macro";
+import { Diagnostics } from "../../../../../classes/diagnostics";
+import { relocateDiagnostic } from "../../../../../util/diagnosticsUtils";
+import { buildGuardFromType } from "../../../../../util/functions/buildGuardFromType";
+import { CallMacro } from "../../../macro";
 
 export const FlameworkCreateGuardMacro: CallMacro = {
 	getSymbol(state) {

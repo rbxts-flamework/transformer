@@ -1,11 +1,11 @@
 import ts from "typescript";
-import { Diagnostics } from "../../../classes/diagnostics";
-import { TransformState } from "../../../classes/transformState";
-import { f } from "../../../util/factory";
-import { buildGuardFromType } from "../../../util/functions/buildGuardFromType";
-import { CallMacro } from "../macro";
+import { Diagnostics } from "../../../../classes/diagnostics";
+import { TransformState } from "../../../../classes/transformState";
+import { f } from "../../../../util/factory";
+import { buildGuardFromType } from "../../../../util/functions/buildGuardFromType";
+import { CallMacro } from "../../macro";
 
-export const FlameworkCreateEventMacro: CallMacro = {
+export const NetworkingCreateEventMacro: CallMacro = {
 	getSymbol(state) {
 		if (!state.symbolProvider.networking) return [];
 		return state.symbolProvider.networking.get("createEvent");

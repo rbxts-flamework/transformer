@@ -1,18 +1,14 @@
 import ts from "typescript";
-import { Diagnostics } from "../../../classes/diagnostics";
-import { f } from "../../../util/factory";
-import { CallMacro } from "../macro";
+import { Diagnostics } from "../../../../classes/diagnostics";
+import { f } from "../../../../util/factory";
+import { CallMacro } from "../../macro";
 
-export const ComponentMethodMacro: CallMacro = {
+export const ComponentGetAllComponentsMacro: CallMacro = {
 	getSymbol(state) {
 		const symbols = state.symbolProvider;
 		if (!symbols.components) return [];
 
-		return [
-			symbols.components.get("addComponent"),
-			symbols.components.get("removeComponent"),
-			symbols.components.get("getComponent"),
-		];
+		return symbols.components.get("getAllComponents");
 	},
 
 	transform(state, node) {
@@ -24,7 +20,6 @@ export const ComponentMethodMacro: CallMacro = {
 			if (!declaration) Diagnostics.error(firstType, `Could not find declaration`);
 
 			return f.update.call(node, state.transform(node.expression), [
-				node.arguments[0],
 				f.as(f.string(state.getUid(declaration)), f.keywordType(ts.SyntaxKind.NeverKeyword)),
 			]);
 		} else {
@@ -39,7 +34,6 @@ export const ComponentMethodMacro: CallMacro = {
 			if (!declaration) Diagnostics.error(specifier, `Declaration could not be found`);
 
 			return f.update.call(node, state.transform(node.expression), [
-				node.arguments[0],
 				f.as(f.string(state.getUid(declaration)), f.keywordType(ts.SyntaxKind.NeverKeyword)),
 			]);
 		}
