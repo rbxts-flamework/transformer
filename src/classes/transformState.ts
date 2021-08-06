@@ -143,19 +143,21 @@ export class TransformState {
 		public context: ts.TransformationContext,
 		public config: TransformerConfig,
 	) {
-		if (config.hashPrefix?.startsWith("$") && !config.$rbxpackmode$) {
-			throw new Error(`The hashPrefix $ is used internally by Flamework`);
-		}
-
 		this.setupRojo();
 		this.setupBuildInfo();
-		this.buildInfo.setIdentifierPrefix(config.hashPrefix);
 
 		const { result: packageJson } = getPackageJson(this.currentDirectory);
 		assert(packageJson.name);
 
 		this.packageName = packageJson.name;
 		this.isGame = !this.packageName.startsWith("@");
+
+		if (!this.isGame) config.hashPrefix ??= this.packageName;
+		this.buildInfo.setIdentifierPrefix(config.hashPrefix);
+
+		if (config.hashPrefix?.startsWith("$") && !config.$rbxpackmode$) {
+			throw new Error(`The hashPrefix $ is used internally by Flamework`);
+		}
 
 		Cache.isInitialCompile = false;
 	}
@@ -301,12 +303,12 @@ export class TransformState {
 	 * Format the internal id to be shorter, remove `out` part of path, and use hashPrefix.
 	 */
 	formatInternalid(internalId: string, hashPrefix = this.config.hashPrefix) {
-		const match = new RegExp(`^@.*/.*:(.+)@(.+)$`).exec(internalId);
+		const match = new RegExp(`^.*:(.*)@(.+)$`).exec(internalId);
 		if (!match) return internalId;
 
 		const [, path, name] = match;
-		const revisedPath = path.replace(/^(.*)[\/\\]/, "");
-		return `${hashPrefix}:${revisedPath}@${name}`;
+		const revisedPath = path.replace(/^(.*?)[\/\\]/, "");
+		return hashPrefix ? `${hashPrefix}:${revisedPath}@${name}` : `${revisedPath}@${name}`;
 	}
 
 	getUid(node: ts.NamedDeclaration) {
