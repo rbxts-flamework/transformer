@@ -268,10 +268,7 @@ function updateClass(state: TransformState, node: ts.ClassDeclaration, decorator
 		}
 	}
 
-	const result = state.transform(f.update.classDeclaration(node, node.name, members, undefined));
-	if (members !== node.members)
-		console.log(ts.createPrinter().printNode(ts.EmitHint.Unspecified, result, state.getSourceFile(node)));
-	return result;
+	return state.transform(f.update.classDeclaration(node, node.name, members, undefined));
 }
 
 function calculateOmittedGuards(
