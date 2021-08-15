@@ -45,7 +45,7 @@ export const NetworkingCreateEventMacro: CallMacro = {
 					const paramType = state.typeChecker.getTypeOfSymbolAtLocation(param, node);
 					guards.push(buildGuardFromType(state, state.getSourceFile(node), paramType));
 				}
-				assignments.push(f.propertyDeclaration(state.obfuscateText(prop.name, "remotes"), guards));
+				assignments.push(f.propertyAssignmentDeclaration(state.obfuscateText(prop.name, "remotes"), guards));
 			}
 
 			return assignments;

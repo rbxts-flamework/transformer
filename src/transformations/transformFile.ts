@@ -7,11 +7,14 @@ import { transformStatementList } from "./transformStatementList";
 export function transformFile(state: TransformState, file: ts.SourceFile): ts.SourceFile {
 	const statements = transformStatementList(state, file.statements);
 
+	const hoisted = state.hoistedToTop.get(file);
+	if (hoisted) {
+		statements.unshift(...hoisted);
+	}
+
 	const imports = state.fileImports.get(file.fileName);
 	if (imports) {
-		statements.splice(
-			0,
-			0,
+		statements.unshift(
 			...imports.map((info) =>
 				f.importDeclaration(
 					info.path,
