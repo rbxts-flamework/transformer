@@ -78,6 +78,7 @@ export class TransformState {
 	public isGame: boolean;
 
 	public callMacros = new Map<ts.Symbol, CallMacro>();
+	public inferExpressions = new Map<ts.SourceFile, ts.Identifier>();
 
 	private setupBuildInfo() {
 		let baseBuildInfo = BuildInfo.fromDirectory(this.currentDirectory);
@@ -349,6 +350,14 @@ export class TransformState {
 		this.context.addDiagnostic(diag);
 	}
 
+	public hoistedToTop = new Map<ts.SourceFile, ts.Statement[]>();
+	hoistToTop(file: ts.SourceFile, node: ts.Statement) {
+		let hoisted = this.hoistedToTop.get(file);
+		if (!hoisted) this.hoistedToTop.set(file, (hoisted = []));
+
+		hoisted.push(node);
+	}
+
 	private prereqStack = new Array<Array<ts.Statement>>();
 	capture<T>(cb: () => T): [T, ts.Statement[]] {
 		this.prereqStack.push([]);
@@ -372,6 +381,10 @@ export class TransformState {
 
 	transform<T extends ts.Node>(node: T): T {
 		return ts.visitEachChild(node, (newNode) => transformNode(this, newNode), this.context);
+	}
+
+	transformNode<T extends ts.Node>(node: T): T {
+		return ts.visitNode(node, (newNode) => transformNode(this, newNode));
 	}
 
 	private _shouldViewFile(file: ts.SourceFile) {

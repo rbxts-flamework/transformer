@@ -32,7 +32,7 @@ export function buildGuardsFromType(
 		}
 
 		const attribute = buildGuardFromType(state, file, propertyType);
-		guards.push(f.propertyDeclaration(property.name, attribute));
+		guards.push(f.propertyAssignmentDeclaration(property.name, attribute));
 	}
 	return guards;
 }
@@ -98,7 +98,7 @@ export function buildGuardFromType(state: TransformState, file: ts.SourceFile, t
 			if (propertyType && !instanceType.getProperty(property.name)) {
 				// assume intersections are children
 				additionalGuards.push(
-					f.propertyDeclaration(property.name, buildGuardFromType(state, file, propertyType)),
+					f.propertyAssignmentDeclaration(property.name, buildGuardFromType(state, file, propertyType)),
 				);
 			}
 		}

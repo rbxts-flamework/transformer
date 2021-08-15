@@ -22,6 +22,8 @@ import ts from "typescript";
 export namespace f {
 	let factory = ts.factory;
 
+	type NodeArray<T extends ts.Node> = Array<T> | ts.NodeArray<T>;
+	type ONodeArray<T extends ts.Node> = NodeArray<T> | undefined;
 	export type ConvertableExpression = string | number | ts.Expression | Array<ConvertableExpression> | boolean;
 	export function toExpression(
 		expression: ConvertableExpression,
@@ -97,7 +99,7 @@ export namespace f {
 		} else {
 			const realProperties: ts.ObjectLiteralElementLike[] = [];
 			for (const key of Object.keys(properties)) {
-				realProperties.push(propertyDeclaration(key, properties[key]));
+				realProperties.push(propertyAssignmentDeclaration(key, properties[key]));
 			}
 			return factory.createObjectLiteralExpression(realProperties, multiLine);
 		}
@@ -124,11 +126,116 @@ export namespace f {
 		return factory.createElementAccessExpression(toExpression(expression), toExpression(index));
 	}
 
-	/// Statements
-	/// Declarations
+	export function arrowFunction(
+		body: ts.ConciseBody,
+		parameters?: ts.ParameterDeclaration[],
+		typeParameters?: ts.TypeParameterDeclaration[],
+		type?: ts.TypeNode,
+	) {
+		return factory.createArrowFunction(
+			undefined,
+			typeParameters,
+			parameters ?? [],
+			type,
+			factory.createToken(ts.SyntaxKind.EqualsGreaterThanToken),
+			body,
+		);
+	}
 
-	export function propertyDeclaration(name: ts.PropertyName | string, value: ConvertableExpression) {
+	export function bang(expression: ConvertableExpression) {
+		return factory.createNonNullExpression(toExpression(expression, identifier));
+	}
+
+	/// Statements
+
+	export function block(statements: ts.Statement[], multiLine = true) {
+		return factory.createBlock(statements, multiLine);
+	}
+
+	export function returnStatement(expression?: ConvertableExpression) {
+		return factory.createReturnStatement(expression ? toExpression(expression) : undefined);
+	}
+
+	export function variableStatement(
+		name: string | ts.BindingName,
+		initializer?: ts.Expression,
+		type?: ts.TypeNode,
+		isMutable = false,
+	) {
+		return factory.createVariableStatement(
+			undefined,
+			factory.createVariableDeclarationList(
+				[factory.createVariableDeclaration(name, undefined, type, initializer)],
+				isMutable ? ts.NodeFlags.Let : ts.NodeFlags.Const,
+			),
+		);
+	}
+
+	/// Declarations
+	export function methodDeclaration(
+		name: string | ts.PropertyName,
+		body?: ts.Block,
+		parameters?: ts.ParameterDeclaration[],
+		type?: ts.TypeNode,
+		isOptional = false,
+		typeParameters?: ts.TypeParameterDeclaration[],
+	) {
+		return factory.createMethodDeclaration(
+			undefined,
+			undefined,
+			undefined,
+			name,
+			isOptional ? token(ts.SyntaxKind.QuestionToken) : undefined,
+			typeParameters,
+			parameters ?? [],
+			type,
+			body,
+		);
+	}
+
+	export function arrayBindingDeclaration(elements: Array<ts.Identifier | string>) {
+		return factory.createArrayBindingPattern(
+			elements.map((x) => factory.createBindingElement(undefined, undefined, x, undefined)),
+		);
+	}
+
+	export function parameterDeclaration(
+		name: string | ts.BindingName,
+		type?: ts.TypeNode,
+		value?: ts.Expression,
+		isOptional?: boolean,
+		isSpread?: boolean,
+	) {
+		return factory.createParameterDeclaration(
+			undefined,
+			undefined,
+			isSpread ? factory.createToken(ts.SyntaxKind.DotDotDotToken) : undefined,
+			name,
+			isOptional ? factory.createToken(ts.SyntaxKind.QuestionToken) : undefined,
+			type,
+			value,
+		);
+	}
+
+	export function typeParameterDeclaration(
+		name: string | ts.Identifier,
+		constraint?: ts.TypeNode,
+		defaultType?: ts.TypeNode,
+	) {
+		return factory.createTypeParameterDeclaration(name, constraint, defaultType);
+	}
+
+	export function propertyAssignmentDeclaration(name: ts.PropertyName | string, value: ConvertableExpression) {
 		return factory.createPropertyAssignment(typeof name === "string" ? string(name) : name, toExpression(value));
+	}
+
+	export function propertyDeclaration(
+		name: ts.PropertyName | string,
+		initializer?: ts.Expression,
+		type?: ts.TypeNode,
+		tokenType?: ts.QuestionToken | ts.ExclamationToken,
+	) {
+		return factory.createPropertyDeclaration(undefined, undefined, name, tokenType, type, initializer);
 	}
 
 	export function importDeclaration(
@@ -183,6 +290,36 @@ export namespace f {
 
 	/// Type Nodes
 
+	export function functionType(
+		parameters: ts.ParameterDeclaration[],
+		returnType: ts.TypeNode,
+		typeParameters?: ts.TypeParameterDeclaration[],
+	) {
+		return factory.createFunctionTypeNode(typeParameters ?? [], parameters, returnType);
+	}
+
+	export function unionType(types: ts.TypeNode[]) {
+		return factory.createUnionTypeNode(types);
+	}
+
+	export function intersectionType(types: ts.TypeNode[]) {
+		return factory.createIntersectionTypeNode(types);
+	}
+
+	export function importType(
+		argument: ts.TypeNode | string,
+		qualifier?: ts.EntityName,
+		isTypeOf?: boolean,
+		typeArguments?: ts.TypeNode[],
+	) {
+		return factory.createImportTypeNode(
+			typeof argument === "string" ? literalType(string(argument)) : argument,
+			qualifier,
+			typeArguments,
+			isTypeOf,
+		);
+	}
+
 	export function referenceType(typeName: string | ts.EntityName, typeArguments?: ts.TypeNode[]) {
 		return factory.createTypeReferenceNode(typeName, typeArguments);
 	}
@@ -199,6 +336,22 @@ export namespace f {
 		return factory.createTypeLiteralNode(members);
 	}
 
+	export function indexSignatureType(indexType: ts.TypeNode, valueType: ts.TypeNode) {
+		return factory.createIndexSignature(undefined, undefined, [parameterDeclaration("key", indexType)], valueType);
+	}
+
+	export function callSignatureType(
+		parameters: ts.ParameterDeclaration[],
+		returnType: ts.TypeNode,
+		typeParameters?: ts.TypeParameterDeclaration[],
+	) {
+		return factory.createCallSignature(typeParameters, parameters, returnType);
+	}
+
+	export function tupleType(elements: Array<ts.TypeNode | ts.NamedTupleMember>) {
+		return factory.createTupleTypeNode(elements);
+	}
+
 	export function literalType(expr: ts.LiteralTypeNode["literal"]) {
 		return factory.createLiteralTypeNode(expr);
 	}
@@ -209,6 +362,12 @@ export namespace f {
 
 	export function indexedAccessType(left: ts.TypeNode, right: ts.TypeNode) {
 		return factory.createIndexedAccessTypeNode(left, right);
+	}
+
+	// Other
+
+	export function token<T extends ts.SyntaxKind>(kind: T) {
+		return factory.createToken(kind);
 	}
 
 	export namespace is {
@@ -291,6 +450,10 @@ export namespace f {
 
 		export function classDeclaration(node?: ts.Node): node is ts.ClassDeclaration {
 			return node !== undefined && ts.isClassDeclaration(node);
+		}
+
+		export function methodDeclaration(node?: ts.Node): node is ts.MethodDeclaration {
+			return node !== undefined && ts.isMethodDeclaration(node);
 		}
 
 		export function namespaceDeclaration(node?: ts.Node): node is ts.NamespaceDeclaration {
@@ -387,7 +550,7 @@ export namespace f {
 		export function classDeclaration(
 			node: ts.ClassDeclaration,
 			name = node.name,
-			members = node.members,
+			members: NodeArray<ts.ClassElement> = node.members,
 			decorators?: Array<ts.Decorator>,
 			heritageClauses = node.heritageClauses,
 			typeParameters = node.typeParameters,
@@ -401,6 +564,86 @@ export namespace f {
 				typeParameters,
 				heritageClauses,
 				members,
+			);
+		}
+
+		export function constructor(
+			node: ts.ConstructorDeclaration,
+			parameters: NodeArray<ts.ParameterDeclaration>,
+			body: ts.Block,
+		) {
+			return factory.updateConstructorDeclaration(node, undefined, undefined, parameters, body);
+		}
+
+		export function parameterDeclaration(
+			node: ts.ParameterDeclaration,
+			name = node.name,
+			type = node.type,
+			initializer = node.initializer,
+			modifiers: ONodeArray<ts.Modifier> = node.modifiers,
+			isRest = node.dotDotDotToken !== undefined,
+			isOptional = node.questionToken !== undefined,
+		) {
+			return factory.updateParameterDeclaration(
+				node,
+				undefined,
+				modifiers?.length ? modifiers : undefined,
+				isRest ? token(ts.SyntaxKind.DotDotDotToken) : undefined,
+				name,
+				isOptional ? token(ts.SyntaxKind.QuestionToken) : undefined,
+				type,
+				initializer,
+			);
+		}
+
+		export function methodDeclaration(
+			node: ts.MethodDeclaration,
+			name: string | ts.PropertyName = node.name,
+			body = node.body,
+			parameters: ONodeArray<ts.ParameterDeclaration> = node.parameters,
+			typeParameters: ONodeArray<ts.TypeParameterDeclaration> = node.typeParameters,
+			decorators: ONodeArray<ts.Decorator> = node.decorators,
+			modifiers: ONodeArray<ts.Modifier> = node.modifiers,
+			isOptional = node.asteriskToken !== undefined,
+			type = node.type,
+		) {
+			return factory.updateMethodDeclaration(
+				node,
+				decorators?.length === 0 ? undefined : decorators,
+				modifiers?.length === 0 ? undefined : modifiers,
+				undefined,
+				typeof name === "string" ? identifier(name) : name,
+				isOptional ? factory.createToken(ts.SyntaxKind.QuestionToken) : undefined,
+				typeParameters?.length === 0 ? undefined : typeParameters,
+				parameters,
+				type,
+				Array.isArray(body) ? f.block(body) : body,
+			);
+		}
+
+		export function propertyDeclaration(
+			node: ts.PropertyDeclaration,
+			initializer: ConvertableExpression | null | undefined = node.initializer,
+			name = node.name,
+			decorators: ONodeArray<ts.Decorator> = node.decorators,
+			modifiers: ONodeArray<ts.Modifier> = node.modifiers,
+			tokenType: "?" | "!" | undefined = node.questionToken ? "?" : node.exclamationToken ? "!" : undefined,
+			type = node.type,
+		) {
+			const syntaxToken =
+				tokenType === "!"
+					? token(ts.SyntaxKind.ExclamationToken)
+					: tokenType === "?"
+					? token(ts.SyntaxKind.QuestionToken)
+					: undefined;
+			return factory.updatePropertyDeclaration(
+				node,
+				decorators?.length === 0 ? undefined : decorators,
+				modifiers?.length === 0 ? undefined : modifiers,
+				name,
+				syntaxToken,
+				type,
+				!initializer ? undefined : toExpression(initializer),
 			);
 		}
 
