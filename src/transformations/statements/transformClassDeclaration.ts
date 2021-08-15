@@ -196,13 +196,15 @@ function updateClass(state: TransformState, node: ts.ClassDeclaration, decorator
 			const constructor = members[constructorIndex] as ts.ConstructorDeclaration;
 			if (constructor) {
 				const internalProp = f.identifier("constructor_parameters", true);
-				members.unshift(
-					f.propertyDeclaration(
-						internalProp,
-						undefined,
-						f.tupleType(constructor.parameters.map((x) => x.type!)),
-					),
-				);
+				if (constructor.parameters.length) {
+					members.unshift(
+						f.propertyDeclaration(
+							internalProp,
+							undefined,
+							f.tupleType(constructor.parameters.map((x) => x.type!)),
+						),
+					);
+				}
 
 				const parameterNames = new Array<ts.Identifier>();
 				const parameters = constructor.parameters.map((parameter) => {
@@ -217,20 +219,34 @@ function updateClass(state: TransformState, node: ts.ClassDeclaration, decorator
 					}
 				});
 
-				constructorStatements.unshift(
-					f.variableStatement(
-						f.arrayBindingDeclaration(parameterNames),
-						f.field(ts.factory.createThis(), internalProp),
-					),
-				);
+				if (constructor.parameters.length) {
+					constructorStatements.unshift(
+						f.variableStatement(
+							f.arrayBindingDeclaration(parameterNames),
+							f.field(ts.factory.createThis(), internalProp),
+						),
+					);
+				}
 
-				const superCall = ts.forEachChildRecursively(constructor, (node, parent) =>
-					f.is.call(parent) && node.kind === ts.SyntaxKind.SuperKeyword ? parent : undefined,
-				);
+				const superCalls = new Array<ts.CallExpression>();
+				ts.forEachChildRecursively(constructor, (node, parent) => {
+					if (f.is.call(parent) && node.kind === ts.SyntaxKind.SuperKeyword) {
+						superCalls.push(parent);
+					}
+				});
 
-				const setConstructorParameters = f.statement(
-					f.binary(f.field(ts.factory.createThis(), internalProp), ts.SyntaxKind.EqualsToken, parameterNames),
-				);
+				if (superCalls.length > 1) Diagnostics.error(superCalls[1], "Expected one super() call in component");
+				const superCall = state.transformNode(superCalls[0]);
+
+				const setConstructorParameters = constructor.parameters.length
+					? f.statement(
+							f.binary(
+								f.field(ts.factory.createThis(), internalProp),
+								ts.SyntaxKind.EqualsToken,
+								parameterNames,
+							),
+					  )
+					: f.statement();
 
 				constructorStatements.push(...constructor.body!.statements.filter((x) => x !== superCall?.parent));
 
@@ -261,7 +277,7 @@ function updateClass(state: TransformState, node: ts.ClassDeclaration, decorator
 							),
 						);
 					}),
-					f.block(constructorStatements),
+					constructorStatements.length ? f.block(constructorStatements) : f.statement(),
 					...onStart.body.statements,
 				]),
 			);

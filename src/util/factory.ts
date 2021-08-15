@@ -72,8 +72,12 @@ export namespace f {
 		return factory.createPropertyAccessExpression(toExpression(name, identifier), property);
 	}
 
-	export function statement(expression: ConvertableExpression) {
-		return factory.createExpressionStatement(toExpression(expression));
+	export function statement(expression?: ConvertableExpression) {
+		if (expression !== undefined) {
+			return factory.createExpressionStatement(toExpression(expression));
+		} else {
+			return factory.createExpressionStatement(identifier("undefined"));
+		}
 	}
 
 	export function call(
