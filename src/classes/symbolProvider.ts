@@ -22,7 +22,6 @@ export class SymbolProvider {
 	public flamework!: NamespaceSymbol;
 	public components?: ClassSymbol;
 	public networking?: NamespaceSymbol;
-	public networkingImpl?: NamespaceSymbol;
 
 	constructor(public state: TransformState) {}
 
@@ -133,7 +132,6 @@ export class SymbolProvider {
 		this.flamework = this.flameworkFile.getNamespace("Flamework");
 		this.components = this.componentsFile?.getClass("Components");
 		this.networking = this.networkingFile?.getNamespace("Networking");
-		this.networkingImpl = this.networkingFile?.getNamespace("NetworkingImpl");
 	}
 }
 
@@ -168,7 +166,6 @@ class ClassSymbol {
 
 class TypeSymbol {
 	public typeSymbol: ts.Symbol;
-	public type: ts.Type;
 
 	constructor(
 		public fileSymbol: FileSymbol,
@@ -176,16 +173,13 @@ class TypeSymbol {
 		public node: ts.TypeAliasDeclaration | ts.InterfaceDeclaration,
 	) {
 		const typeSymbol = fileSymbol.state.getSymbol(node.name);
-		const type = fileSymbol.state.typeChecker.getTypeAtLocation(node.name);
 		assert(typeSymbol);
-		assert(type);
 
-		this.type = type;
 		this.typeSymbol = typeSymbol;
 	}
 
 	get(name: string) {
-		const memberSymbol = this.type.getProperty(name);
+		const memberSymbol = this.typeSymbol.members?.get(name as ts.__String);
 		assert(memberSymbol, `Name ${name} not found in ${this.typeSymbol.name}`);
 
 		return memberSymbol;

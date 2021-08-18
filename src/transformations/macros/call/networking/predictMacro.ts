@@ -4,10 +4,10 @@ import { CallMacro } from "../../macro";
 
 export const NetworkingPredictMacro: CallMacro = {
 	getSymbol(state) {
-		const networking = state.symbolProvider.networkingImpl;
+		const networking = state.symbolProvider.getFile("@flamework/networking/events/types");
 		if (!networking) return [];
 
-		return [networking.getType("ClientHandler").get("predict")];
+		return [networking.getType("ClientInterface").get("predict")];
 	},
 
 	transform(state, node) {

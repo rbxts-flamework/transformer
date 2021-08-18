@@ -8,10 +8,13 @@ import { CallMacro } from "../../macro";
 export const NetworkingConnectMacro: CallMacro = {
 	getSymbol(state) {
 		const symbols = state.symbolProvider;
-		const networking = symbols.networkingImpl;
+		const networking = symbols.getFile("@flamework/networking/events/types");
 		if (!networking) return [];
 
-		return [networking.getType("ServerHandler").get("connect"), networking.getType("ClientHandler").get("connect")];
+		return [
+			networking.getType("ServerInterface").get("connect"),
+			networking.getType("ClientInterface").get("connect"),
+		];
 	},
 
 	transform(state, node, macro) {

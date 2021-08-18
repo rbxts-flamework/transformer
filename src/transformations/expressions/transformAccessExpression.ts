@@ -16,7 +16,7 @@ function transformNetworkEvent(
 	node: ts.PropertyAccessExpression | ts.ElementAccessExpression,
 	name?: string,
 ) {
-	const networking = state.symbolProvider.networkingImpl;
+	const networking = state.symbolProvider.getFile("@flamework/networking/events/types");
 	if (!networking) return;
 
 	const type = state.typeChecker.getTypeAtLocation(node);

@@ -8,10 +8,14 @@ import { CallMacro } from "../../macro";
 export const NetworkingCreateEventMacro: CallMacro = {
 	getSymbol(state) {
 		if (!state.symbolProvider.networking) return [];
-		return state.symbolProvider.networking.get("createEvent");
+		return [
+			state.symbolProvider.networking.get("createEvent"),
+			state.symbolProvider.networking.get("createFunction"),
+		];
 	},
 
-	transform(state, node) {
+	transform(state, node, macro) {
+		const file = state.getSourceFile(node);
 		const signature = state.typeChecker.getResolvedSignature(node);
 		const serverTypeArg = node.typeArguments?.[0];
 		const clientTypeArg = node.typeArguments?.[1];
@@ -27,9 +31,7 @@ export const NetworkingCreateEventMacro: CallMacro = {
 		const parentDeclaration = node.parent;
 		if (!f.is.namedDeclaration(parentDeclaration)) return Diagnostics.error(node, `Must be under a declaration.`);
 
-		const networking = state.addFileImport(state.getSourceFile(node), "@flamework/networking", "Networking");
-
-		const convertTypeToGuardArray = (type: ts.Type, source: ts.Node) => {
+		const convertTypeToGuardArray = (type: ts.Type, source: ts.Node, generateReturn = false) => {
 			const assignments = new Array<ts.PropertyAssignment>();
 
 			for (const prop of type.getProperties()) {
@@ -43,32 +45,44 @@ export const NetworkingCreateEventMacro: CallMacro = {
 				const guards = new Array<ts.Expression>();
 				for (const param of callSignature.parameters) {
 					const paramType = state.typeChecker.getTypeOfSymbolAtLocation(param, node);
-					guards.push(buildGuardFromType(state, state.getSourceFile(node), paramType));
+					guards.push(buildGuardFromType(state, file, paramType));
 				}
-				assignments.push(f.propertyAssignmentDeclaration(state.obfuscateText(prop.name, "remotes"), guards));
+
+				assignments.push(
+					f.propertyAssignmentDeclaration(
+						state.obfuscateText(prop.name, "remotes"),
+						generateReturn
+							? [guards, buildGuardFromType(state, file, callSignature.getReturnType())]
+							: guards,
+					),
+				);
 			}
 
 			return assignments;
 		};
 
+		const isFunction = macro.symbol === macro.symbols[1];
+		const networkingPath = isFunction ? "functions" : "events";
+		const networkingCreateName = isFunction ? "createNetworkingFunction" : "createNetworkingEvent";
+
+		const createNetworkingEvent = state.addFileImport(
+			file,
+			`@flamework/networking/out/${networkingPath}/${networkingCreateName}`,
+			networkingCreateName,
+		);
+
 		const obfuscatedServerTypeArg = createObfuscatedType(state, serverTypeArg, serverType);
 		const obfuscatedClientTypeArg = createObfuscatedType(state, clientTypeArg, clientType);
-		return f.as(
-			f.update.call(
-				node,
-				f.field(networking, "_createEvent"),
-				[
-					state.getUid(parentDeclaration),
-					f.object(convertTypeToGuardArray(serverType, serverTypeArg)),
-					f.object(convertTypeToGuardArray(clientType, clientTypeArg)),
-					...obfuscateMiddleware(state, node.arguments),
-				],
-				[obfuscatedServerTypeArg, obfuscatedClientTypeArg],
-			),
-			f.referenceType(f.qualifiedNameType(networking, "EventType"), [
-				obfuscatedServerTypeArg,
-				obfuscatedClientTypeArg,
-			]),
+		return f.update.call(
+			node,
+			createNetworkingEvent,
+			[
+				state.getUid(parentDeclaration),
+				f.object(convertTypeToGuardArray(serverType, serverTypeArg, isFunction)),
+				f.object(convertTypeToGuardArray(clientType, clientTypeArg, isFunction)),
+				...obfuscateMiddleware(state, node.arguments),
+			],
+			[obfuscatedServerTypeArg, obfuscatedClientTypeArg],
 		);
 	},
 };
