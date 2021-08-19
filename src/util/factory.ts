@@ -150,6 +150,10 @@ export namespace f {
 		return factory.createNonNullExpression(toExpression(expression, identifier));
 	}
 
+	export function self() {
+		return ts.factory.createThis();
+	}
+
 	/// Statements
 
 	export function block(statements: ts.Statement[], multiLine = true) {

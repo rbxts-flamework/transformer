@@ -124,7 +124,7 @@ function updateClass(state: TransformState, node: ts.ClassDeclaration, decorator
 		}
 
 		if (f.is.methodDeclaration(onStart) && onStart.body) {
-			const propertyDeclarations = new Array<[string, ts.Expression]>();
+			const propertyDeclarations = new Array<[string, ts.Expression, boolean]>();
 
 			const memberIndexMapping = new Map<ts.Symbol, number>();
 			for (let i = 0; i < members.length; i++) {
@@ -145,7 +145,11 @@ function updateClass(state: TransformState, node: ts.ClassDeclaration, decorator
 				const type = state.typeChecker.getTypeAtLocation(x.name);
 				if (!type) return state.transformNode(x);
 
-				propertyDeclarations.push([x.name.text, x.initializer]);
+				propertyDeclarations.push([
+					x.name.text,
+					x.initializer,
+					(x.modifierFlagsCache & ts.ModifierFlags.Readonly) !== 0,
+				]);
 
 				const validator = (node: ts.Node) => {
 					const symbol = state.getSymbol(node);
@@ -268,10 +272,19 @@ function updateClass(state: TransformState, node: ts.ClassDeclaration, decorator
 				onStart,
 				undefined,
 				f.block([
-					...propertyDeclarations.map(([name, initializer]) => {
+					...propertyDeclarations.map(([name, initializer, isReadonly]) => {
+						const readonlyThis =
+							isReadonly &&
+							f.as(
+								f.self(),
+								f.typeLiteralType([
+									f.propertySignatureType(name, f.keywordType(ts.SyntaxKind.UnknownKeyword)),
+								]),
+							);
+
 						return f.statement(
 							f.binary(
-								f.field(ts.factory.createThis(), name),
+								f.field(readonlyThis || f.self(), name),
 								f.token(ts.SyntaxKind.EqualsToken),
 								initializer,
 							),

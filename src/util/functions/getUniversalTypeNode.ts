@@ -24,7 +24,7 @@ export function getUniversalTypeNode(location: ts.Node, type: ts.Type): ts.TypeN
 		return f.typeLiteralType(declarations);
 	}
 
-	if ((type.flags & ts.TypeFlags.Intrinsic) !== 0) {
+	if (type.isLiteral() || (type.flags & ts.TypeFlags.Intrinsic) !== 0) {
 		return type.checker.typeToTypeNode(type, location, undefined);
 	}
 
