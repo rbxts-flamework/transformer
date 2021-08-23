@@ -32,6 +32,7 @@ export const FlameworkAddPathsMacro: CallMacro = {
 				root: state.currentDirectory,
 				cwd: state.currentDirectory,
 				nomount: true,
+				nocase: true,
 			});
 			for (const path of paths) {
 				const rbxPath = getPathFromSpecifier(state, state.getSourceFile(node), state.currentDirectory, path);
