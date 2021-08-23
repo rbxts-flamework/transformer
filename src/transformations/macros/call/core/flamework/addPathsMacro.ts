@@ -4,6 +4,7 @@ import { f } from "../../../../../util/factory";
 import { CallMacro } from "../../../macro";
 import { Diagnostics } from "../../../../../classes/diagnostics";
 import { TransformState } from "../../../../../classes/transformState";
+import glob from "glob";
 
 function getPathFromSpecifier(state: TransformState, source: ts.SourceFile, hostDir: string, specifier: string) {
 	const sourceDir = path.dirname(source.fileName);
@@ -27,10 +28,17 @@ export const FlameworkAddPathsMacro: CallMacro = {
 		for (const arg of node.arguments) {
 			if (!f.is.string(arg)) Diagnostics.error(arg, `Expected string`);
 
-			const rbxPath = getPathFromSpecifier(state, state.getSourceFile(node), state.currentDirectory, arg.text);
-			if (!rbxPath) Diagnostics.error(arg, `Could not find rojo data`);
+			const paths = glob.sync(`${arg.text}/`, {
+				root: state.currentDirectory,
+				cwd: state.currentDirectory,
+				nomount: true,
+			});
+			for (const path of paths) {
+				const rbxPath = getPathFromSpecifier(state, state.getSourceFile(node), state.currentDirectory, path);
+				if (!rbxPath) Diagnostics.error(arg, `Could not find rojo data`);
 
-			convertedArguments.push(f.array(rbxPath.map(f.string)));
+				convertedArguments.push(f.array(rbxPath.map(f.string)));
+			}
 		}
 
 		return f.call(f.field(importId, "_addPaths"), convertedArguments);
