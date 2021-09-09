@@ -38,6 +38,16 @@ export default function (program: ts.Program, config?: TransformerConfig) {
 				process.exit(1);
 			}
 
+			if (state.config.noSemanticDiagnostics !== true) {
+				const preEmitDiagnostics = ts.getPreEmitDiagnostics(program, file);
+				if (preEmitDiagnostics.some((x) => x.category === ts.DiagnosticCategory.Error)) {
+					preEmitDiagnostics
+						.filter((x): x is ts.DiagnosticWithLocation => ts.isDiagnosticWithLocation(x))
+						.forEach((diag) => context.addDiagnostic(diag));
+					return file;
+				}
+			}
+
 			if (!hasCollectedInformation) {
 				hasCollectedInformation = true;
 

@@ -126,18 +126,7 @@ function updateClass(state: TransformState, node: ts.ClassDeclaration, decorator
 		if (f.is.methodDeclaration(onStart) && onStart.body) {
 			const propertyDeclarations = new Array<[string, ts.Expression, boolean]>();
 
-			const memberIndexMapping = new Map<ts.Symbol, number>();
-			for (let i = 0; i < members.length; i++) {
-				const member = members[i];
-				if (!f.is.propertyDeclaration(member)) continue;
-
-				const symbol = state.getSymbol(member.name);
-				if (symbol) {
-					memberIndexMapping.set(symbol, i);
-				}
-			}
-
-			members = members.map((x, i) => {
+			members = members.map((x) => {
 				if (!f.is.propertyDeclaration(x)) return state.transformNode(x);
 				if (!x.initializer) return state.transformNode(x);
 				if (!("text" in x.name)) return state.transformNode(x);
@@ -150,19 +139,6 @@ function updateClass(state: TransformState, node: ts.ClassDeclaration, decorator
 					x.initializer,
 					(x.modifierFlagsCache & ts.ModifierFlags.Readonly) !== 0,
 				]);
-
-				const validator = (node: ts.Node) => {
-					const symbol = state.getSymbol(node);
-					if (!symbol) return;
-
-					const symbolIndex = memberIndexMapping.get(symbol);
-					if (!symbolIndex) return;
-
-					if (symbolIndex >= i) {
-						Diagnostics.error(node, `Property '${symbol.name}' is used before its initialization.`);
-					}
-				};
-				ts.forEachChildRecursively(x.initializer, validator);
 
 				if (x.type) {
 					return f.update.propertyDeclaration(
