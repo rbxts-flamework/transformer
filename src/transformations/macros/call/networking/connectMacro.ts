@@ -12,30 +12,21 @@ export const NetworkingConnectMacro: CallMacro = {
 		if (!networking) return [];
 
 		return [
-			networking.getType("ServerInterface").get("connect"),
-			networking.getType("ClientInterface").get("connect"),
+			networking.getType("ServerReceiver").get("connect"),
+			networking.getType("ClientReceiver").get("connect"),
 		];
 	},
 
 	transform(state, node, macro) {
-		const event = node.arguments[0];
-		const cb = node.arguments[1];
-		const customGuards = node.arguments[2];
+		const cb = node.arguments[0];
+		const customGuards = node.arguments[1];
 
-		if (!f.is.string(event)) Diagnostics.error(event, `Expected string`);
 		if (!f.is.functionExpression(cb)) Diagnostics.error(cb, `Expected function expression`);
-
 		if (customGuards !== undefined && !f.is.array(customGuards))
 			Diagnostics.error(customGuards, `Expected array or undefined`);
 
 		if (!cb.parameters.some((x) => x.type !== undefined)) {
-			if (state.config.obfuscation) {
-				const args: f.ConvertableExpression[] = [state.obfuscateText(event.text, "remotes"), cb];
-				if (customGuards) args.push(customGuards);
-				return state.transform(f.update.call(node, node.expression, args));
-			} else {
-				return state.transform(node);
-			}
+			return state.transform(node);
 		}
 
 		const undefinedId = f.identifier("undefined");
@@ -74,10 +65,6 @@ export const NetworkingConnectMacro: CallMacro = {
 			generatedGuards.pop();
 		}
 
-		return f.update.call(node, node.expression, [
-			state.obfuscateText(event.text, "remotes"),
-			state.transform(cb),
-			generatedGuards,
-		]);
+		return f.update.call(node, node.expression, [state.transform(cb), generatedGuards]);
 	},
 };
