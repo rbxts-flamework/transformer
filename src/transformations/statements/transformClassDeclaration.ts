@@ -3,6 +3,7 @@ import { Diagnostics } from "../../classes/diagnostics";
 import { TransformState } from "../../classes/transformState";
 import { DecoratorInfo, DecoratorWithNodes } from "../../types/decorators";
 import { f } from "../../util/factory";
+import { addLeadingComment } from "../../util/functions/addLeadingComment";
 import { buildGuardFromType, buildGuardsFromType } from "../../util/functions/buildGuardFromType";
 import { getInferExpression } from "../../util/functions/getInferExpression";
 import { getPrettyName } from "../../util/functions/getPrettyName";
@@ -243,32 +244,31 @@ function updateClass(state: TransformState, node: ts.ClassDeclaration, decorator
 				);
 			}
 
+			const transformedProperties = propertyDeclarations.map(([name, initializer, isReadonly]) => {
+				const readonlyThis =
+					isReadonly &&
+					f.as(
+						f.self(),
+						f.typeLiteralType([f.propertySignatureType(name, f.keywordType(ts.SyntaxKind.UnknownKeyword))]),
+					);
+
+				return f.statement(
+					f.binary(f.field(readonlyThis || f.self(), name), f.token(ts.SyntaxKind.EqualsToken), initializer),
+				);
+			});
+
+			const constructorBody = constructorStatements.length
+				? addLeadingComment(f.block(constructorStatements), "Constructor Body")
+				: f.statement();
+
+			addLeadingComment(transformedProperties[0], "Property Declarations");
+			addLeadingComment(onStart.body.statements[0], "OnStart Event");
+
 			onStartIndex = members.findIndex((x) => x.name && "text" in x.name && x.name.text === "onStart");
 			members[onStartIndex] = f.update.methodDeclaration(
 				onStart,
 				undefined,
-				f.block([
-					...propertyDeclarations.map(([name, initializer, isReadonly]) => {
-						const readonlyThis =
-							isReadonly &&
-							f.as(
-								f.self(),
-								f.typeLiteralType([
-									f.propertySignatureType(name, f.keywordType(ts.SyntaxKind.UnknownKeyword)),
-								]),
-							);
-
-						return f.statement(
-							f.binary(
-								f.field(readonlyThis || f.self(), name),
-								f.token(ts.SyntaxKind.EqualsToken),
-								initializer,
-							),
-						);
-					}),
-					constructorStatements.length ? f.block(constructorStatements) : f.statement(),
-					...onStart.body.statements,
-				]),
+				f.block([...transformedProperties, constructorBody, ...onStart.body.statements]),
 			);
 		}
 	}
