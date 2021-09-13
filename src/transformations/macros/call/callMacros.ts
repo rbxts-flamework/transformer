@@ -9,7 +9,6 @@ import { FlameworkHashMacro } from "./core/flamework/hashMacro";
 import { FlameworkIdMacro } from "./core/flamework/flameworkIdMacro";
 import { FlameworkImplementsMacro } from "./core/flamework/implementsMacro";
 import { NetworkingConnectMacro } from "./networking/connectMacro";
-import { NetworkingPredictMacro } from "./networking/predictMacro";
 import { TestingPatchDependencyMacro } from "./core/flamework/testingPatchDependencyMacro";
 
 export const CALL_MACROS = new Array<CallMacro>(
@@ -19,7 +18,6 @@ export const CALL_MACROS = new Array<CallMacro>(
 
 	// @flamework/networking
 	NetworkingConnectMacro,
-	NetworkingPredictMacro,
 	NetworkingCreateEventMacro,
 
 	// @flamework/core
