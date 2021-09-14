@@ -1,5 +1,4 @@
 import ts from "typescript";
-import { Diagnostics } from "../../classes/diagnostics";
 import { TransformState } from "../../classes/transformState";
 import { f } from "../../util/factory";
 
@@ -18,10 +17,10 @@ function transformNetworkEvent(
 ) {
 	const networking = state.symbolProvider.findFile("@flamework/networking/events/types");
 	if (!networking) return;
+	if (!name) return;
 
-	const type = state.typeChecker.getTypeAtLocation(node);
-	if (type.symbol !== networking.get("ServerMethod") && type.symbol !== networking.get("ClientMethod")) return;
-	if (!name) Diagnostics.error(node, `Expected string`);
+	const type = state.typeChecker.getTypeAtLocation(node.expression);
+	if (type.getProperty("_nominal_NetworkingObfuscationMarker") === undefined) return;
 
 	return f.elementAccessExpression(node.expression, state.obfuscateText(name, "remotes"));
 }
