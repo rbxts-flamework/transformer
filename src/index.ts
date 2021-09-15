@@ -39,12 +39,18 @@ export default function (program: ts.Program, config?: TransformerConfig) {
 			}
 
 			if (state.config.noSemanticDiagnostics !== true) {
-				const preEmitDiagnostics = ts.getPreEmitDiagnostics(program, file);
-				if (preEmitDiagnostics.some((x) => x.category === ts.DiagnosticCategory.Error)) {
-					preEmitDiagnostics
-						.filter((x): x is ts.DiagnosticWithLocation => ts.isDiagnosticWithLocation(x))
-						.forEach((diag) => context.addDiagnostic(diag));
-					return file;
+				const originalFile = ts.getParseTreeNode(file, ts.isSourceFile);
+				if (originalFile) {
+					const preEmitDiagnostics = ts.getPreEmitDiagnostics(program, originalFile);
+					if (preEmitDiagnostics.some((x) => x.category === ts.DiagnosticCategory.Error)) {
+						preEmitDiagnostics
+							.filter(ts.isDiagnosticWithLocation)
+							.forEach((diag) => context.addDiagnostic(diag));
+						return file;
+					}
+				} else {
+					const relativeName = path.relative(state.srcDir, file.fileName);
+					Logger.warn(`Failed to validate '${relativeName}' due to lack of parse tree node.`);
 				}
 			}
 
