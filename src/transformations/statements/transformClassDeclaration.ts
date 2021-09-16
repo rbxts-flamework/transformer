@@ -130,6 +130,7 @@ function updateClass(state: TransformState, node: ts.ClassDeclaration, decorator
 			members = members.map((x) => {
 				if (!f.is.propertyDeclaration(x)) return state.transformNode(x);
 				if (!x.initializer) return state.transformNode(x);
+				if (x.modifierFlagsCache & ts.ModifierFlags.Static) return state.transformNode(x);
 				if (!("text" in x.name)) return state.transformNode(x);
 
 				const type = state.typeChecker.getTypeAtLocation(x.name);
