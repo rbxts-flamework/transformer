@@ -60,7 +60,7 @@ export function getUniversalTypeNodeGenerator(location: ts.Node) {
 			return f.typeLiteralType(declarations);
 		}
 
-		if (type.isLiteral() || (type.flags & ts.TypeFlags.Intrinsic) !== 0) {
+		if (type.isLiteral() || type.flags & ts.TypeFlags.TemplateLiteral || type.flags & ts.TypeFlags.Intrinsic) {
 			return type.checker.typeToTypeNode(type, location, undefined);
 		}
 
