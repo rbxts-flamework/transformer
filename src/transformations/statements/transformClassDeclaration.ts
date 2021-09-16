@@ -8,7 +8,7 @@ import { buildGuardFromType, buildGuardsFromType } from "../../util/functions/bu
 import { getInferExpression } from "../../util/functions/getInferExpression";
 import { getPrettyName } from "../../util/functions/getPrettyName";
 import { getSuperClasses } from "../../util/functions/getSuperClasses";
-import { getUniversalTypeNode } from "../../util/functions/getUniversalTypeNode";
+import { getUniversalTypeNodeGenerator } from "../../util/functions/getUniversalTypeNode";
 import { replaceValue } from "../../util/functions/replaceValue";
 
 export function transformClassDeclaration(state: TransformState, node: ts.ClassDeclaration) {
@@ -152,7 +152,7 @@ function updateClass(state: TransformState, node: ts.ClassDeclaration, decorator
 						x.questionToken ? f.unionType([x.type, f.keywordType(ts.SyntaxKind.UndefinedKeyword)]) : x.type,
 					);
 				} else {
-					const validTypeNode = getUniversalTypeNode(x, type);
+					const validTypeNode = getUniversalTypeNodeGenerator(x).generate(type);
 					if (validTypeNode) {
 						return f.update.propertyDeclaration(
 							x,

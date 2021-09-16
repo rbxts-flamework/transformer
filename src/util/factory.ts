@@ -296,6 +296,14 @@ export namespace f {
 		);
 	}
 
+	export function typeAliasDeclaration(
+		name: string | ts.Identifier,
+		type: ts.TypeNode,
+		typeParameters?: ts.TypeParameterDeclaration[],
+	) {
+		return factory.createTypeAliasDeclaration(undefined, undefined, name, typeParameters, type);
+	}
+
 	/// Type Nodes
 
 	export function functionType(
