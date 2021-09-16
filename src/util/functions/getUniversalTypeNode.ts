@@ -11,12 +11,19 @@ const FORMAT_FLAGS =
  */
 export function getUniversalTypeNodeGenerator(location: ts.Node) {
 	const visitingTypes = new Set<ts.Type>();
-	return { generate };
+	const prereqs = new Array<ts.TypeAliasDeclaration>();
+	const prereq = new Map<ts.Type, ts.Identifier>();
+	return { generate, prereqs };
 
 	function generate(type: ts.Type): ts.TypeNode | undefined {
+		const prereqId = prereq.get(type);
+		if (prereqId) {
+			return f.referenceType(prereqId);
+		}
+
 		if (visitingTypes.has(type)) {
 			// recursive type
-			return undefined;
+			return f.referenceType(getPrereq(type));
 		}
 
 		visitingTypes.add(type);
@@ -24,6 +31,12 @@ export function getUniversalTypeNodeGenerator(location: ts.Node) {
 		visitingTypes.delete(type);
 
 		if (generatedType) {
+			const prereqId = prereq.get(type);
+			if (prereqId) {
+				prereqs.push(f.typeAliasDeclaration(prereqId, generatedType));
+				return f.referenceType(prereqId);
+			}
+
 			return generatedType;
 		}
 	}
@@ -54,11 +67,19 @@ export function getUniversalTypeNodeGenerator(location: ts.Node) {
 		if (type.symbol) {
 			const accessibility = type.checker.isSymbolAccessible(type.symbol, location, ts.SymbolFlags.Type, false);
 			if (accessibility.accessibility === ts.SymbolAccessibility.Accessible) {
-				if (!isTypeFullyAccessible(type)) {
-					// TypeScript may format this type incorrectly, so assume it can't be generated.
-					return;
+				if (isReferenceType(type)) {
+					const typeArguments = new Array<ts.TypeNode>();
+					for (const typeArgument of type.resolvedTypeArguments ?? []) {
+						const generatedType = generate(typeArgument);
+						if (!generatedType) return;
+
+						typeArguments.push(generatedType);
+					}
+
+					return getTypeReference(type, typeArguments);
 				}
-				return type.checker.typeToTypeNode(type, location, FORMAT_FLAGS);
+
+				return getTypeReference(type);
 			}
 
 			if (type.isClassOrInterface()) {
@@ -69,6 +90,13 @@ export function getUniversalTypeNodeGenerator(location: ts.Node) {
 		if (isObjectLiteralType(type)) {
 			return getUniversalObjectTypeNode(type);
 		}
+	}
+
+	function getPrereq(type: ts.Type) {
+		let prereqId = prereq.get(type);
+		if (!prereqId) prereq.set(type, (prereqId = f.identifier("typeAlias", true)));
+
+		return prereqId;
 	}
 
 	function getUniversalObjectTypeNode(type: ts.Type) {
@@ -82,7 +110,9 @@ export function getUniversalTypeNodeGenerator(location: ts.Node) {
 			const universalTypeNode = generate(propType);
 			if (!universalTypeNode) return undefined;
 
-			members.push(f.propertySignatureType(prop.name, universalTypeNode));
+			members.push(
+				f.propertySignatureType(prop.name, universalTypeNode, propType.checker.isNullableType(propType)),
+			);
 		}
 
 		const numberIndexType = type.getNumberIndexType();
@@ -128,25 +158,48 @@ export function getUniversalTypeNodeGenerator(location: ts.Node) {
 		return signatures;
 	}
 
-	function isTypeFullyAccessible(type: ts.Type) {
-		if (isReferenceType(type) && type.resolvedTypeArguments) {
-			for (const typeArgument of type.resolvedTypeArguments) {
-				if (typeArgument.symbol) {
-					const accessibility = type.checker.isSymbolAccessible(
-						typeArgument.symbol,
-						location,
-						ts.SymbolFlags.Type,
-						false,
-					);
-					if (accessibility.accessibility !== ts.SymbolAccessibility.Accessible) {
-						return false;
-					}
-				}
-			}
-		}
+	function getTypeReference(type: ts.Type, typeArguments?: ts.TypeNode[]) {
+		const symbolChain = type.checker.getAccessibleSymbolChain(type.symbol, location, ts.SymbolFlags.Type, false);
+		const typeNode = type.checker.typeToTypeNode(type, location, FORMAT_FLAGS);
+		const isTypeOf = f.is.queryType(typeNode) || (f.is.importType(typeNode) && typeNode.isTypeOf);
 
-		return true;
+		if (symbolChain) {
+			const accessibleTypeNode = getQualifiedName(symbolChain.map((x) => x.name));
+			if (accessibleTypeNode) {
+				return isTypeOf ? f.queryType(accessibleTypeNode) : f.referenceType(accessibleTypeNode, typeArguments);
+			}
+		} else {
+			const [filePath, ...segments] = type.checker.getFullyQualifiedName(type.symbol).split(".");
+			const accessibleTypeNode = getQualifiedName(segments);
+			return f.importType(filePath.substr(1, filePath.length - 2), accessibleTypeNode, isTypeOf, typeArguments);
+		}
 	}
+
+	function getQualifiedName(segments: string[]) {
+		if (segments.length === 0) return;
+		let qualifiedName: ts.QualifiedName | ts.Identifier | undefined = f.identifier(segments[0]);
+		for (let i = segments.length - 1; i > 0; i--) {
+			const segment = segments[i];
+			qualifiedName = f.qualifiedNameType(qualifiedName, segment);
+		}
+		return qualifiedName;
+	}
+}
+
+function isMethodDeclaration(node: ts.Node, typeChecker: ts.TypeChecker): boolean {
+	if (ts.isFunctionLike(node)) {
+		const thisParam = node.parameters[0];
+		if (thisParam && f.is.identifier(thisParam.name) && ts.isThisIdentifier(thisParam.name)) {
+			return !(typeChecker.getTypeAtLocation(thisParam.name).flags & ts.TypeFlags.Void);
+		} else {
+			if (ts.isMethodDeclaration(node) || ts.isMethodSignature(node)) {
+				return true;
+			}
+
+			return false;
+		}
+	}
+	return false;
 }
 
 function isMethod(signature: ts.Signature, typeChecker: ts.TypeChecker) {
@@ -155,12 +208,11 @@ function isMethod(signature: ts.Signature, typeChecker: ts.TypeChecker) {
 		if (!(typeChecker.getTypeAtLocation(thisParameter).flags & ts.TypeFlags.Void)) {
 			return true;
 		}
-	} else {
-		if (f.is.methodDeclaration(signature.declaration)) {
+	} else if (signature.declaration) {
+		if (isMethodDeclaration(signature.declaration, typeChecker)) {
 			return true;
 		}
 	}
-
 	return false;
 }
 

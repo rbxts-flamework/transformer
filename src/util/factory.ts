@@ -372,12 +372,21 @@ export namespace f {
 		return factory.createLiteralTypeNode(expr);
 	}
 
-	export function propertySignatureType(name: string | ts.PropertyName, type: ts.TypeNode) {
-		return factory.createPropertySignature(undefined, name, undefined, type);
+	export function propertySignatureType(name: string | ts.PropertyName, type: ts.TypeNode, isOptional?: boolean) {
+		return factory.createPropertySignature(
+			undefined,
+			name,
+			isOptional ? token(ts.SyntaxKind.QuestionToken) : undefined,
+			type,
+		);
 	}
 
 	export function indexedAccessType(left: ts.TypeNode, right: ts.TypeNode) {
 		return factory.createIndexedAccessTypeNode(left, right);
+	}
+
+	export function queryType(expression: ts.EntityName) {
+		return factory.createTypeQueryNode(expression);
 	}
 
 	// Other
@@ -511,6 +520,10 @@ export namespace f {
 
 		export function queryType(node?: ts.Node): node is ts.TypeQueryNode {
 			return node !== undefined && ts.isTypeQueryNode(node);
+		}
+
+		export function importType(node?: ts.Node): node is ts.ImportTypeNode {
+			return node !== undefined && ts.isImportTypeNode(node);
 		}
 
 		/// OTHERS

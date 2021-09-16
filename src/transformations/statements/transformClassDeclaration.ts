@@ -152,8 +152,10 @@ function updateClass(state: TransformState, node: ts.ClassDeclaration, decorator
 						x.questionToken ? f.unionType([x.type, f.keywordType(ts.SyntaxKind.UndefinedKeyword)]) : x.type,
 					);
 				} else {
-					const validTypeNode = getUniversalTypeNodeGenerator(x).generate(type);
+					const generator = getUniversalTypeNodeGenerator(x);
+					const validTypeNode = generator.generate(type);
 					if (validTypeNode) {
+						state.prereqList(generator.prereqs);
 						return f.update.propertyDeclaration(
 							x,
 							null,
