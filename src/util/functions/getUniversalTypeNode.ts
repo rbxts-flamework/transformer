@@ -111,7 +111,11 @@ export function getUniversalTypeNodeGenerator(location: ts.Node) {
 			if (!universalTypeNode) return undefined;
 
 			members.push(
-				f.propertySignatureType(prop.name, universalTypeNode, propType.checker.isNullableType(propType)),
+				f.propertySignatureType(
+					f.string(prop.name),
+					universalTypeNode,
+					propType.checker.isNullableType(propType),
+				),
 			);
 		}
 
