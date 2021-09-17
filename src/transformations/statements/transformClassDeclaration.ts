@@ -247,6 +247,32 @@ function updateClass(state: TransformState, node: ts.ClassDeclaration, decorator
 				);
 			}
 
+			const superOnStartStatement = shouldAddSuperOnStart(state, node)
+				? f.statement(f.call(f.field(f.superExpression(), "onStart")))
+				: f.statement();
+
+			const superOnStart = ts.forEachChildRecursively(onStart, (node) => {
+				if (!f.is.call(node)) return;
+
+				const expr = node.expression;
+				if (!f.is.accessExpression(expr)) return;
+				if (!f.is.superExpression(expr.expression)) return;
+
+				if (f.is.propertyAccessExpression(expr)) {
+					if (expr.name.text === "onStart") {
+						return node;
+					}
+				} else if (f.is.elementAccessExpression(expr)) {
+					if (f.is.string(expr.argumentExpression)) {
+						return expr.argumentExpression.text === "onStart" ? expr : undefined;
+					}
+				}
+			});
+
+			if (superOnStart) {
+				Diagnostics.error(superOnStart, "super.onStart() must be omitted.");
+			}
+
 			const transformedProperties = propertyDeclarations.map(([name, initializer, isReadonly]) => {
 				const readonlyThis =
 					isReadonly &&
@@ -271,12 +297,27 @@ function updateClass(state: TransformState, node: ts.ClassDeclaration, decorator
 			members[onStartIndex] = f.update.methodDeclaration(
 				onStart,
 				undefined,
-				f.block([...transformedProperties, constructorBody, ...onStart.body.statements]),
+				f.block([superOnStartStatement, ...transformedProperties, constructorBody, ...onStart.body.statements]),
 			);
 		}
 	}
 
 	return state.transform(f.update.classDeclaration(node, node.name, members, undefined));
+}
+
+function shouldAddSuperOnStart(state: TransformState, node: ts.ClassDeclaration) {
+	const superClass = getSuperClasses(state.typeChecker, node)[0];
+	if (!superClass) return false;
+
+	const symbol = state.getSymbol(superClass);
+	if (!symbol) Diagnostics.error(superClass.name ?? node.name ?? node, "Could not find symbol");
+
+	if (symbol.members?.has("onStart" as ts.__String)) return true;
+
+	const classInfo = state.classes.get(symbol);
+	if (!classInfo) return false;
+
+	return classInfo.decorators.some((x) => x.isFlameworkDecorator && x.name === "Component");
 }
 
 function calculateOmittedGuards(

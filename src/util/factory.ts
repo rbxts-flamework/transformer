@@ -154,6 +154,10 @@ export namespace f {
 		return ts.factory.createThis();
 	}
 
+	export function superExpression() {
+		return ts.factory.createSuper();
+	}
+
 	/// Statements
 
 	export function block(statements: ts.Statement[], multiLine = true) {
@@ -450,8 +454,16 @@ export namespace f {
 			return node !== undefined && ts.isPropertyAccessExpression(node);
 		}
 
+		export function elementAccessExpression(node?: ts.Node): node is ts.ElementAccessExpression {
+			return node !== undefined && ts.isElementAccessExpression(node);
+		}
+
 		export function postfixUnary(node?: ts.Node): node is ts.PostfixUnaryExpression {
 			return node !== undefined && ts.isPostfixUnaryExpression(node);
+		}
+
+		export function superExpression(node?: ts.Node): node is ts.SuperExpression {
+			return node !== undefined && ts.isSuperKeyword(node);
 		}
 
 		/// Statements
