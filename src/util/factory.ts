@@ -154,6 +154,10 @@ export namespace f {
 		return ts.factory.createThis();
 	}
 
+	export function superExpression() {
+		return ts.factory.createSuper();
+	}
+
 	/// Statements
 
 	export function block(statements: ts.Statement[], multiLine = true) {
@@ -296,6 +300,14 @@ export namespace f {
 		);
 	}
 
+	export function typeAliasDeclaration(
+		name: string | ts.Identifier,
+		type: ts.TypeNode,
+		typeParameters?: ts.TypeParameterDeclaration[],
+	) {
+		return factory.createTypeAliasDeclaration(undefined, undefined, name, typeParameters, type);
+	}
+
 	/// Type Nodes
 
 	export function functionType(
@@ -364,12 +376,21 @@ export namespace f {
 		return factory.createLiteralTypeNode(expr);
 	}
 
-	export function propertySignatureType(name: string | ts.PropertyName, type: ts.TypeNode) {
-		return factory.createPropertySignature(undefined, name, undefined, type);
+	export function propertySignatureType(name: string | ts.PropertyName, type: ts.TypeNode, isOptional?: boolean) {
+		return factory.createPropertySignature(
+			undefined,
+			name,
+			isOptional ? token(ts.SyntaxKind.QuestionToken) : undefined,
+			type,
+		);
 	}
 
 	export function indexedAccessType(left: ts.TypeNode, right: ts.TypeNode) {
 		return factory.createIndexedAccessTypeNode(left, right);
+	}
+
+	export function queryType(expression: ts.EntityName) {
+		return factory.createTypeQueryNode(expression);
 	}
 
 	// Other
@@ -433,8 +454,16 @@ export namespace f {
 			return node !== undefined && ts.isPropertyAccessExpression(node);
 		}
 
+		export function elementAccessExpression(node?: ts.Node): node is ts.ElementAccessExpression {
+			return node !== undefined && ts.isElementAccessExpression(node);
+		}
+
 		export function postfixUnary(node?: ts.Node): node is ts.PostfixUnaryExpression {
 			return node !== undefined && ts.isPostfixUnaryExpression(node);
+		}
+
+		export function superExpression(node?: ts.Node): node is ts.SuperExpression {
+			return node !== undefined && ts.isSuperKeyword(node);
 		}
 
 		/// Statements
@@ -503,6 +532,10 @@ export namespace f {
 
 		export function queryType(node?: ts.Node): node is ts.TypeQueryNode {
 			return node !== undefined && ts.isTypeQueryNode(node);
+		}
+
+		export function importType(node?: ts.Node): node is ts.ImportTypeNode {
+			return node !== undefined && ts.isImportTypeNode(node);
 		}
 
 		/// OTHERS
