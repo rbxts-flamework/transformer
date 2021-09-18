@@ -65,6 +65,6 @@ export const NetworkingConnectMacro: CallMacro = {
 			generatedGuards.pop();
 		}
 
-		return f.update.call(node, node.expression, [state.transform(cb), generatedGuards]);
+		return f.update.call(node, state.transformNode(node.expression), [state.transform(cb), generatedGuards]);
 	},
 };
