@@ -48,6 +48,11 @@ export class BuildInfo {
 	}
 
 	static fromDirectory(directory: string) {
+		const buildInfoPath = path.join(directory, "flamework.build");
+		if (ts.sys.fileExists(buildInfoPath)) {
+			return this.fromPath(buildInfoPath);
+		}
+
 		const packageJsonPath = ts.findPackageJson(directory, ts.sys as never);
 		if (packageJsonPath) {
 			const buildInfoPath = path.join(path.dirname(packageJsonPath), "flamework.build");
