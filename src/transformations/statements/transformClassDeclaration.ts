@@ -300,9 +300,11 @@ function updateClass(state: TransformState, node: ts.ClassDeclaration, decorator
 				f.block([superOnStartStatement, ...transformedProperties, constructorBody, ...onStart.body.statements]),
 			);
 		}
+	} else {
+		members = members.map((node) => state.transformNode(node));
 	}
 
-	return state.transform(f.update.classDeclaration(node, node.name, members, undefined));
+	return f.update.classDeclaration(node, node.name ? state.transformNode(node.name) : undefined, members, undefined);
 }
 
 function shouldAddSuperOnStart(state: TransformState, node: ts.ClassDeclaration) {
