@@ -297,7 +297,12 @@ function updateClass(state: TransformState, node: ts.ClassDeclaration, decorator
 			members[onStartIndex] = f.update.methodDeclaration(
 				onStart,
 				undefined,
-				f.block([superOnStartStatement, ...transformedProperties, constructorBody, ...onStart.body.statements]),
+				f.block([
+					superOnStartStatement,
+					...transformedProperties,
+					constructorBody,
+					...state.transformList(onStart.body.statements),
+				]),
 			);
 		}
 	} else {

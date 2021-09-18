@@ -393,6 +393,10 @@ export class TransformState {
 		return ts.visitNode(node, (newNode) => transformNode(this, newNode));
 	}
 
+	transformList<T extends ts.Node>(nodes: ts.NodeArray<T>): ts.NodeArray<T> {
+		return ts.visitNodes(nodes, (newNode) => transformNode(this, newNode));
+	}
+
 	private _shouldViewFile(file: ts.SourceFile) {
 		const fileName = path.posix.normalize(file.fileName);
 		if (IGNORE_RBXTS_REGEX.test(fileName)) return false;
