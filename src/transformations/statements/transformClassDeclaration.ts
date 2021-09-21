@@ -138,7 +138,7 @@ function updateClass(state: TransformState, node: ts.ClassDeclaration, decorator
 
 				propertyDeclarations.push([
 					x.name.text,
-					x.initializer,
+					state.transformNode(x.initializer),
 					(x.modifierFlagsCache & ts.ModifierFlags.Readonly) !== 0,
 				]);
 
