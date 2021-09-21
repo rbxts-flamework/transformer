@@ -82,6 +82,14 @@ export function buildGuardFromType(state: TransformState, file: ts.SourceFile, t
 	const diagnosticsLocation = getDeclarationOfType(type) ?? file;
 	const tId = state.addFileImport(file, "@rbxts/t", "t");
 
+	if (type.isUnion()) {
+		return buildUnionGuard(state, file, type);
+	}
+
+	if (type.isIntersection()) {
+		return buildIntersectionGuard(state, file, type);
+	}
+
 	if ((type.flags & ts.TypeFlags.TypeVariable) !== 0) {
 		const constraint = type.checker.getBaseConstraintOfType(type);
 		if (!constraint) Diagnostics.error(diagnosticsLocation, "could not find constraint of type parameter");
@@ -110,14 +118,6 @@ export function buildGuardFromType(state: TransformState, file: ts.SourceFile, t
 					baseGuard,
 					f.call(f.field(tId, "children"), [f.object(additionalGuards)]),
 			  ]);
-	}
-
-	if (type.isUnion()) {
-		return buildUnionGuard(state, file, type);
-	}
-
-	if (type.isIntersection()) {
-		return buildIntersectionGuard(state, file, type);
 	}
 
 	if (type.isStringLiteral() || type.isNumberLiteral()) {
