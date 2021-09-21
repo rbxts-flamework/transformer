@@ -279,6 +279,7 @@ function updateClass(state: TransformState, node: ts.ClassDeclaration, decorator
 					f.as(
 						f.self(),
 						f.typeLiteralType([f.propertySignatureType(name, f.keywordType(ts.SyntaxKind.UnknownKeyword))]),
+						true,
 					);
 
 				return f.statement(
