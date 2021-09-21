@@ -86,17 +86,6 @@ export function buildGuardFromType(state: TransformState, file: ts.SourceFile, t
 		return buildUnionGuard(state, file, type);
 	}
 
-	if (type.isIntersection()) {
-		return buildIntersectionGuard(state, file, type);
-	}
-
-	if ((type.flags & ts.TypeFlags.TypeVariable) !== 0) {
-		const constraint = type.checker.getBaseConstraintOfType(type);
-		if (!constraint) Diagnostics.error(diagnosticsLocation, "could not find constraint of type parameter");
-
-		return buildGuardFromType(state, file, constraint);
-	}
-
 	if (isInstanceType(type)) {
 		const instanceType = getInstanceTypeFromType(file, type);
 		const additionalGuards = new Array<ts.PropertyAssignment>();
@@ -118,6 +107,17 @@ export function buildGuardFromType(state: TransformState, file: ts.SourceFile, t
 					baseGuard,
 					f.call(f.field(tId, "children"), [f.object(additionalGuards)]),
 			  ]);
+	}
+
+	if (type.isIntersection()) {
+		return buildIntersectionGuard(state, file, type);
+	}
+
+	if ((type.flags & ts.TypeFlags.TypeVariable) !== 0) {
+		const constraint = type.checker.getBaseConstraintOfType(type);
+		if (!constraint) Diagnostics.error(diagnosticsLocation, "could not find constraint of type parameter");
+
+		return buildGuardFromType(state, file, constraint);
 	}
 
 	if (type.isStringLiteral() || type.isNumberLiteral()) {
