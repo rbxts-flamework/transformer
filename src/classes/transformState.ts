@@ -22,6 +22,10 @@ import { isCleanBuildDirectory } from "../util/functions/isCleanBuildDirectory";
 import { parseCommandLine } from "../util/functions/parseCommandLine";
 
 const IGNORE_RBXTS_REGEX = /node_modules\/@rbxts\/(compiler-types|types)\/.*\.d\.ts$/;
+const IMPORT_MAPPING = new Map([
+	["Reflect", "reflect"],
+	["Flamework", "flamework"],
+]);
 
 export interface TransformerConfig {
 	/**
@@ -192,7 +196,7 @@ export class TransformState {
 	addFileImport(file: ts.SourceFile, importPath: string, name: string): ts.Identifier {
 		const symbolProvider = this.symbolProvider;
 
-		if (importPath === "@flamework/core") {
+		if (importPath.startsWith("@flamework/core")) {
 			if (
 				(file === symbolProvider.flameworkFile.file ||
 					this.getSymbol(file) === symbolProvider.flameworkFile.fileSymbol) &&
@@ -202,7 +206,7 @@ export class TransformState {
 			}
 
 			const flameworkDir = path.dirname(symbolProvider.flameworkFile.file.fileName);
-			const modulePath = path.join(flameworkDir, name === "Reflect" ? "reflect" : "flamework");
+			const modulePath = path.join(flameworkDir, IMPORT_MAPPING.get(name) ?? importPath.substr(20));
 
 			if (isPathDescendantOf(file.fileName, flameworkDir)) {
 				importPath = "./" + path.relative(path.dirname(file.fileName), modulePath) || ".";
