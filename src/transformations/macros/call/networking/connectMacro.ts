@@ -21,7 +21,7 @@ export const NetworkingConnectMacro: CallMacro = {
 		const cb = node.arguments[0];
 		const customGuards = node.arguments[1];
 
-		if (!f.is.functionExpression(cb)) Diagnostics.error(cb, `Expected function expression`);
+		if (!f.is.functionExpression(cb)) return state.transform(node);
 		if (customGuards !== undefined && !f.is.array(customGuards))
 			Diagnostics.error(customGuards, `Expected array or undefined`);
 
