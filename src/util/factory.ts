@@ -542,6 +542,10 @@ export namespace f {
 		export function namedImports(node?: ts.Node): node is ts.NamedImports {
 			return node !== undefined && ts.isNamedImports(node);
 		}
+
+		export function file(node?: ts.Node): node is ts.SourceFile {
+			return node !== undefined && ts.isSourceFile(node);
+		}
 	}
 
 	export namespace update {

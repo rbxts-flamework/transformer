@@ -8,6 +8,13 @@ export const DependencyMacro: CallMacro = {
 	},
 
 	transform(state, node) {
+		if (f.is.file(node.parent.parent)) {
+			Diagnostics.warning(
+				node,
+				"The Dependency macro should not be used outside of a function as this may introduce race conditions.",
+			);
+		}
+
 		const importId = state.addFileImport(state.getSourceFile(node), "@flamework/core", "Flamework");
 		const firstArg = node.arguments[0];
 		const firstType = node.typeArguments?.[0];
