@@ -113,6 +113,13 @@ export function buildGuardFromType(state: TransformState, file: ts.SourceFile, t
 		return buildIntersectionGuard(state, file, type);
 	}
 
+	if (isConditionalType(type)) {
+		return f.call(f.field(tId, "union"), [
+			buildGuardFromType(state, file, type.resolvedTrueType),
+			buildGuardFromType(state, file, type.resolvedFalseType),
+		]);
+	}
+
 	if ((type.flags & ts.TypeFlags.TypeVariable) !== 0) {
 		const constraint = type.checker.getBaseConstraintOfType(type);
 		if (!constraint) Diagnostics.error(diagnosticsLocation, "could not find constraint of type parameter");
@@ -271,4 +278,8 @@ function isObjectType(type: ts.Type): type is ts.InterfaceType {
 
 function isInstanceType(type: ts.Type) {
 	return type.getProperty("_nominal_Instance") !== undefined;
+}
+
+function isConditionalType(type: ts.Type): type is ts.ConditionalType {
+	return (type.flags & ts.TypeFlags.Conditional) !== 0;
 }
