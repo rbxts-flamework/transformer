@@ -1,7 +1,7 @@
 import ts from "typescript";
 import path from "path";
 import fs from "fs";
-import ajv from "ajv";
+import ajv, { ValidateFunction } from "ajv";
 import crypto from "crypto";
 import { v4 as uuid } from "uuid";
 import { PACKAGE_ROOT, PKG_VERSION } from "./rojoResolver/constants";
@@ -31,7 +31,7 @@ interface FlameworkBuildInfo {
 }
 
 export class BuildInfo {
-	static validateBuildFn: ajv.ValidateFunction;
+	static validateBuildFn: ValidateFunction;
 
 	static fromPath(fileName: string) {
 		if (!ts.sys.fileExists(fileName)) return new BuildInfo(fileName);

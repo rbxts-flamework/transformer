@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import ts from "typescript";
 import { Diagnostics } from "../classes/diagnostics";
 
@@ -8,7 +9,7 @@ type ValueOrDiagnostic<T> =
 export function captureDiagnostic<T, A extends unknown[]>(cb: (...args: A) => T, ...args: A): ValueOrDiagnostic<T> {
 	try {
 		return { success: true, value: cb(...args) };
-	} catch (e) {
+	} catch (e: any) {
 		if ("diagnostic" in e) {
 			/// Temporary workaround for 1.1.1
 			if (

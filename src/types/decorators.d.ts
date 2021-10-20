@@ -1,4 +1,4 @@
-import ts from "byots";
+import { ts } from "typescript";
 
 export type BaseDecoratorInfo = ServiceDecorator | ControllerDecorator | CustomDecorator;
 export type DecoratorInfo = BaseDecoratorInfo | DecoratorWithNodes;
