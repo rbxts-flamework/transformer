@@ -68,8 +68,23 @@ export namespace f {
 		return identifier("undefined");
 	}
 
-	export function field(name: ts.Expression | string, property: ts.MemberName | string) {
-		return factory.createPropertyAccessExpression(toExpression(name, identifier), property);
+	export function field(
+		name: ts.Expression | string,
+		property: ts.Expression | ts.PropertyName | ts.MemberName | string,
+	): ts.ElementAccessExpression | ts.PropertyAccessExpression {
+		if (typeof property === "string") {
+			return factory.createElementAccessExpression(toExpression(name, identifier), string(property));
+		}
+
+		if (ts.isComputedPropertyName(property)) {
+			return field(name, property.expression);
+		}
+
+		if (ts.isMemberName(property)) {
+			return factory.createPropertyAccessExpression(toExpression(name, identifier), property);
+		} else {
+			return factory.createElementAccessExpression(toExpression(name, identifier), toExpression(property));
+		}
 	}
 
 	export function statement(expression?: ConvertableExpression) {
