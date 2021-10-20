@@ -125,40 +125,40 @@ function updateClass(state: TransformState, node: ts.ClassDeclaration, decorator
 		}
 
 		if (f.is.methodDeclaration(onStart) && onStart.body) {
-			const propertyDeclarations = new Array<[string, ts.Expression, boolean]>();
+			const propertyDeclarations = new Array<[ts.PropertyName, ts.Expression, boolean]>();
 
-			members = members.map((x) => {
-				if (!f.is.propertyDeclaration(x)) return state.transformNode(x);
-				if (!x.initializer) return state.transformNode(x);
-				if (x.modifierFlagsCache & ts.ModifierFlags.Static) return state.transformNode(x);
-				if (!("text" in x.name)) return state.transformNode(x);
+			members = members.map((member) => {
+				if (!f.is.propertyDeclaration(member)) return state.transformNode(member);
+				if (member.modifierFlagsCache & ts.ModifierFlags.Static) return state.transformNode(member);
 
-				const type = state.typeChecker.getTypeAtLocation(x.name);
-				if (!type) return state.transformNode(x);
+				if (member.initializer) {
+					propertyDeclarations.push([
+						member.name,
+						state.transformNode(member.initializer),
+						(member.modifierFlagsCache & ts.ModifierFlags.Readonly) !== 0,
+					]);
+				}
 
-				propertyDeclarations.push([
-					x.name.text,
-					state.transformNode(x.initializer),
-					(x.modifierFlagsCache & ts.ModifierFlags.Readonly) !== 0,
-				]);
-
-				if (x.type) {
+				if (member.type) {
 					return f.update.propertyDeclaration(
-						x,
+						member,
 						null,
 						undefined,
 						undefined,
 						undefined,
-						"!",
-						x.questionToken ? f.unionType([x.type, f.keywordType(ts.SyntaxKind.UndefinedKeyword)]) : x.type,
+						member.questionToken ? "?" : "!",
+						member.type,
 					);
-				} else {
-					const generator = getUniversalTypeNodeGenerator(x);
+				} else if (member.initializer) {
+					const type = state.typeChecker.getTypeAtLocation(member.name);
+					if (!type) return state.transformNode(member);
+
+					const generator = getUniversalTypeNodeGenerator(member);
 					const validTypeNode = generator.generate(type);
 					if (validTypeNode) {
 						state.prereqList(generator.prereqs);
 						return f.update.propertyDeclaration(
-							x,
+							member,
 							null,
 							undefined,
 							undefined,
@@ -171,7 +171,12 @@ function updateClass(state: TransformState, node: ts.ClassDeclaration, decorator
 					// HACK: if the type can't be represented as a TypeNode,
 					// use a generic function that returns nil to infer the type
 					const inferExpression = getInferExpression(state, state.getSourceFile(node));
-					return f.update.propertyDeclaration(x, f.call(inferExpression, [f.arrowFunction(x.initializer)]));
+					return f.update.propertyDeclaration(
+						member,
+						f.call(inferExpression, [f.arrowFunction(member.initializer)]),
+					);
+				} else {
+					return state.transformNode(member);
 				}
 			});
 
