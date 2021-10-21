@@ -152,8 +152,6 @@ function updateClass(state: TransformState, node: ts.ClassDeclaration, decorator
 				}
 
 				const type = state.typeChecker.getTypeAtLocation(member.name);
-				if (!type) return state.transformNode(member);
-
 				const generator = getUniversalTypeNodeGenerator(member);
 				const validTypeNode = generator.generate(type);
 				if (validTypeNode) {
