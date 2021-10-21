@@ -149,25 +149,27 @@ function updateClass(state: TransformState, node: ts.ClassDeclaration, decorator
 						member.questionToken ? "?" : "!",
 						member.type,
 					);
-				} else if (member.initializer) {
-					const type = state.typeChecker.getTypeAtLocation(member.name);
-					if (!type) return state.transformNode(member);
+				}
 
-					const generator = getUniversalTypeNodeGenerator(member);
-					const validTypeNode = generator.generate(type);
-					if (validTypeNode) {
-						state.prereqList(generator.prereqs);
-						return f.update.propertyDeclaration(
-							member,
-							null,
-							undefined,
-							undefined,
-							undefined,
-							"!",
-							validTypeNode,
-						);
-					}
+				const type = state.typeChecker.getTypeAtLocation(member.name);
+				if (!type) return state.transformNode(member);
 
+				const generator = getUniversalTypeNodeGenerator(member);
+				const validTypeNode = generator.generate(type);
+				if (validTypeNode) {
+					state.prereqList(generator.prereqs);
+					return f.update.propertyDeclaration(
+						member,
+						null,
+						undefined,
+						undefined,
+						undefined,
+						"!",
+						validTypeNode,
+					);
+				}
+
+				if (member.initializer) {
 					// HACK: if the type can't be represented as a TypeNode,
 					// use a generic function that returns nil to infer the type
 					const inferExpression = getInferExpression(state, state.getSourceFile(node));
@@ -175,9 +177,9 @@ function updateClass(state: TransformState, node: ts.ClassDeclaration, decorator
 						member,
 						f.call(inferExpression, [f.arrowFunction(member.initializer)]),
 					);
-				} else {
-					return state.transformNode(member);
 				}
+
+				return state.transformNode(member);
 			});
 
 			const constructorStatements = new Array<ts.Statement>();
