@@ -20,6 +20,7 @@ import { CallMacro } from "../transformations/macros/macro";
 import { CALL_MACROS } from "../transformations/macros/call/callMacros";
 import { isCleanBuildDirectory } from "../util/functions/isCleanBuildDirectory";
 import { parseCommandLine } from "../util/functions/parseCommandLine";
+import { createPathTranslator } from "../util/functions/createPathTranslator";
 
 const IGNORE_RBXTS_REGEX = /node_modules\/@rbxts\/(compiler-types|types)\/.*\.d\.ts$/;
 
@@ -128,7 +129,7 @@ export class TransformState {
 	}
 
 	private setupRojo() {
-		this.pathTranslator = new PathTranslator(this.srcDir, this.outDir, undefined, false);
+		this.pathTranslator = createPathTranslator(this.program);
 
 		const rojoConfig = RojoResolver.findRojoConfigFilePath(this.currentDirectory);
 		if (rojoConfig) {
