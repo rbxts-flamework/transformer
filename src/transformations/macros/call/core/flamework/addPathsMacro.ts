@@ -35,7 +35,7 @@ export const FlameworkAddPathsMacro: CallMacro = {
 				nocase: true,
 			});
 			for (const path of paths) {
-				const rbxPath = getPathFromSpecifier(state, state.getSourceFile(node), state.currentDirectory, path);
+				const rbxPath = getPathFromSpecifier(state, state.getSourceFile(node), state.commonDirectory, path);
 				if (!rbxPath) Diagnostics.error(arg, `Could not find rojo data`);
 
 				convertedArguments.push(f.array(rbxPath.map(f.string)));
