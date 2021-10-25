@@ -69,7 +69,6 @@ export interface TransformerConfig {
 export class TransformState {
 	public parsedCommandLine = parseCommandLine();
 	public currentDirectory = this.parsedCommandLine.project;
-	public commonDirectory = this.program.getCommonSourceDirectory();
 	public options = this.program.getCompilerOptions();
 	public srcDir = this.options.rootDir ?? this.currentDirectory;
 	public outDir = this.options.outDir ?? this.currentDirectory;
@@ -82,6 +81,7 @@ export class TransformState {
 	public pathTranslator!: PathTranslator;
 	public buildInfo!: BuildInfo;
 
+	public rootDirectory: string;
 	public packageName: string;
 	public isGame: boolean;
 
@@ -155,7 +155,8 @@ export class TransformState {
 		this.setupRojo();
 		this.setupBuildInfo();
 
-		const { result: packageJson } = getPackageJson(this.currentDirectory);
+		const { result: packageJson, directory } = getPackageJson(this.currentDirectory);
+		this.rootDirectory = directory;
 		assert(packageJson.name);
 
 		this.packageName = packageJson.name;
