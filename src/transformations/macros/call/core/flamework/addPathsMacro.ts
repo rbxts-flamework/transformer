@@ -29,8 +29,8 @@ export const FlameworkAddPathsMacro: CallMacro = {
 			if (!f.is.string(arg)) Diagnostics.error(arg, `Expected string`);
 
 			const paths = glob.sync(`${arg.text}/`, {
-				root: state.currentDirectory,
-				cwd: state.currentDirectory,
+				root: state.commonDirectory,
+				cwd: state.commonDirectory,
 				nomount: true,
 				nocase: true,
 			});

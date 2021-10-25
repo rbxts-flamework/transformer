@@ -69,6 +69,7 @@ export interface TransformerConfig {
 export class TransformState {
 	public parsedCommandLine = parseCommandLine();
 	public currentDirectory = this.parsedCommandLine.project;
+	public commonDirectory = this.program.getCommonSourceDirectory();
 	public options = this.program.getCompilerOptions();
 	public srcDir = this.options.rootDir ?? this.currentDirectory;
 	public outDir = this.options.outDir ?? this.currentDirectory;
