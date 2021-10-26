@@ -74,6 +74,7 @@ export class SymbolProvider {
 		return `${packageName}/${relativePath}`;
 	}
 
+	private registeredFiles = 0;
 	private registerFileSymbol(file: ts.SourceFile) {
 		const { result, directory } = getPackageJson(file.fileName);
 		assert(result.name);
@@ -81,10 +82,10 @@ export class SymbolProvider {
 		const name = this.getName(result.name, directory, file);
 		assert(!this.fileSymbols.has(name), "Attempt to register file twice");
 
-		Logger.writeLineIfVerbose(`Registering ${name}`);
 		const fileSymbol = new FileSymbol(this.state, file, name);
 		this.fileSymbols.set(name, fileSymbol);
 
+		this.registeredFiles++;
 		return fileSymbol;
 	}
 
@@ -132,6 +133,8 @@ export class SymbolProvider {
 		this.flamework = this.flameworkFile.getNamespace("Flamework");
 		this.components = this.componentsFile?.getClass("Components");
 		this.networking = this.networkingFile?.getNamespace("Networking");
+
+		Logger.writeLineIfVerbose(`Registered symbols in ${this.registeredFiles} files`);
 	}
 }
 
