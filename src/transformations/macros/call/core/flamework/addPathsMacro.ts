@@ -28,14 +28,21 @@ export const FlameworkAddPathsMacro: CallMacro = {
 		for (const arg of node.arguments) {
 			if (!f.is.string(arg)) Diagnostics.error(arg, `Expected string`);
 
-			const paths = glob.sync(`${arg.text}/`, {
-				root: state.currentDirectory,
-				cwd: state.currentDirectory,
-				nomount: true,
-				nocase: true,
-			});
-			for (const path of paths) {
-				const rbxPath = getPathFromSpecifier(state, state.getSourceFile(node), state.currentDirectory, path);
+			if (glob.hasMagic(arg.text)) {
+				const paths = glob.sync(`${arg.text}/`, {
+					root: state.rootDirectory,
+					cwd: state.rootDirectory,
+					nomount: true,
+					nocase: true,
+				});
+				for (const path of paths) {
+					const rbxPath = getPathFromSpecifier(state, state.getSourceFile(node), state.rootDirectory, path);
+					if (!rbxPath) Diagnostics.error(arg, `Could not find rojo data`);
+
+					convertedArguments.push(f.array(rbxPath.map(f.string)));
+				}
+			} else {
+				const rbxPath = getPathFromSpecifier(state, state.getSourceFile(node), state.rootDirectory, arg.text);
 				if (!rbxPath) Diagnostics.error(arg, `Could not find rojo data`);
 
 				convertedArguments.push(f.array(rbxPath.map(f.string)));

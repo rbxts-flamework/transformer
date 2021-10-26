@@ -20,6 +20,7 @@ import { CallMacro } from "../transformations/macros/macro";
 import { CALL_MACROS } from "../transformations/macros/call/callMacros";
 import { isCleanBuildDirectory } from "../util/functions/isCleanBuildDirectory";
 import { parseCommandLine } from "../util/functions/parseCommandLine";
+import { createPathTranslator } from "../util/functions/createPathTranslator";
 
 const IGNORE_RBXTS_REGEX = /node_modules\/@rbxts\/(compiler-types|types)\/.*\.d\.ts$/;
 
@@ -80,6 +81,7 @@ export class TransformState {
 	public pathTranslator!: PathTranslator;
 	public buildInfo!: BuildInfo;
 
+	public rootDirectory: string;
 	public packageName: string;
 	public isGame: boolean;
 
@@ -128,7 +130,7 @@ export class TransformState {
 	}
 
 	private setupRojo() {
-		this.pathTranslator = new PathTranslator(this.srcDir, this.outDir, undefined, false);
+		this.pathTranslator = createPathTranslator(this.program);
 
 		const rojoConfig = RojoResolver.findRojoConfigFilePath(this.currentDirectory);
 		if (rojoConfig) {
@@ -153,7 +155,8 @@ export class TransformState {
 		this.setupRojo();
 		this.setupBuildInfo();
 
-		const { result: packageJson } = getPackageJson(this.currentDirectory);
+		const { result: packageJson, directory } = getPackageJson(this.currentDirectory);
+		this.rootDirectory = directory;
 		assert(packageJson.name);
 
 		this.packageName = packageJson.name;
