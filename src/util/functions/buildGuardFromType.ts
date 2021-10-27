@@ -188,6 +188,11 @@ export function buildGuardFromType(state: TransformState, file: ts.SourceFile, t
 	const symbol = type.getSymbol();
 	if (!symbol) Diagnostics.error(diagnosticsLocation, "Attribute type has no symbol");
 
+	const enumType = type.checker.resolveName("Enum", undefined, ts.SymbolFlags.Type, false);
+	if (symbol.parent?.parent && type.checker.getMergedSymbol(symbol.parent.parent) === enumType) {
+		return f.call(f.field(tId, "literal"), [f.field(f.field("Enum", symbol.parent.name), symbol.name)]);
+	}
+
 	const mapSymbol = typeChecker.resolveName("Map", undefined, ts.SymbolFlags.Type, false);
 	const readonlyMapSymbol = typeChecker.resolveName("ReadonlyMap", undefined, ts.SymbolFlags.Type, false);
 	const weakMapSymbol = typeChecker.resolveName("WeakMap", undefined, ts.SymbolFlags.Type, false);
@@ -247,17 +252,10 @@ function buildUnionGuard(state: TransformState, file: ts.SourceFile, type: ts.Un
 		return f.field(tId, "boolean");
 	}
 
-	const enumType = type.checker.resolveName("Enum", undefined, ts.SymbolFlags.Type, false);
-	if (type.aliasSymbol && type.aliasSymbol.parent === enumType) {
-		return f.call(f.field(tId, "enum"), [f.field("Enum", type.aliasSymbol.name)]);
-	}
-
-	const undefinedType = type.checker.getUndefinedType();
-	const voidType = type.checker.getVoidType();
-	const isOptional = type.types.some((x) => x === undefinedType || x === voidType);
-	const guards = type.types
-		.filter((x) => x !== undefinedType && x !== voidType)
-		.map((type) => buildGuardFromType(state, file, type));
+	const { enums, types: simplifiedTypes } = simplifyUnion(type);
+	const [isOptional, types] = extractTypes(type.checker, simplifiedTypes);
+	const guards = types.map((type) => buildGuardFromType(state, file, type));
+	guards.push(...enums.map((enumId) => f.call(f.field(tId, "enum"), [f.field("Enum", enumId)])));
 
 	const union = guards.length > 1 ? f.call(f.field(tId, "union"), guards) : guards[0];
 	if (!union) return f.field(tId, "none");
@@ -270,6 +268,63 @@ function buildIntersectionGuard(state: TransformState, file: ts.SourceFile, type
 
 	const guards = type.types.map((x) => buildGuardFromType(state, file, x));
 	return f.call(f.field(tId, "intersection"), guards);
+}
+
+function simplifyUnion(type: ts.UnionType) {
+	const enumType = type.checker.resolveName("Enum", undefined, ts.SymbolFlags.Type, false);
+	if (
+		type.aliasSymbol &&
+		type.aliasSymbol.parent &&
+		type.checker.getMergedSymbol(type.aliasSymbol.parent) === enumType
+	) {
+		return { enums: [type.aliasSymbol.name], types: [] };
+	}
+
+	const currentTypes = type.types;
+	const possibleEnums = new Map<ts.Symbol, Set<ts.Type>>();
+	const enums = new Array<string>();
+	const types = new Array<ts.Type>();
+
+	for (const type of currentTypes) {
+		if (!type.symbol || !type.symbol.parent) {
+			types.push(type);
+			continue;
+		}
+
+		const enumKind = type.symbol.parent;
+		if (!enumKind || !enumKind.parent || type.checker.getMergedSymbol(enumKind.parent) !== enumType) {
+			types.push(type);
+			continue;
+		}
+
+		if (type.symbol === enumKind.exports?.get(type.symbol.escapedName)) {
+			let enumValues = possibleEnums.get(enumKind);
+			if (!enumValues) possibleEnums.set(enumKind, (enumValues = new Set()));
+
+			enumValues.add(type);
+		}
+	}
+
+	for (const [symbol, set] of possibleEnums) {
+		// Add 1 to account for GetEnumItems()
+		if (set.size + 1 === symbol.exports?.size) {
+			enums.push(symbol.name);
+		} else {
+			types.push(...set);
+		}
+	}
+
+	return { enums, types };
+}
+
+function extractTypes(typeChecker: ts.TypeChecker, types: ts.Type[]): [isOptional: boolean, types: ts.Type[]] {
+	const undefinedtype = typeChecker.getUndefinedType();
+	const voidType = typeChecker.getVoidType();
+
+	return [
+		types.some((type) => type === undefinedtype || type === voidType),
+		types.filter((type) => type !== undefinedtype && type !== voidType),
+	];
 }
 
 function isObjectType(type: ts.Type): type is ts.InterfaceType {
