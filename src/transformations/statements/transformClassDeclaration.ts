@@ -130,6 +130,7 @@ function updateClass(state: TransformState, node: ts.ClassDeclaration, decorator
 			members = members.map((member) => {
 				if (!f.is.propertyDeclaration(member)) return state.transformNode(member);
 				if (member.modifierFlagsCache & ts.ModifierFlags.Static) return state.transformNode(member);
+				if (member.modifierFlagsCache & ts.ModifierFlags.Abstract) return state.transformNode(member);
 
 				if (member.initializer) {
 					propertyDeclarations.push([
