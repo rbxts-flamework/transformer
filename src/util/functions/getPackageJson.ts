@@ -1,5 +1,6 @@
 import ts from "typescript";
 import path from "path";
+import normalize from "normalize-package-data";
 
 /**
  * Looks recursively at ancestors until a package.json is found
@@ -10,9 +11,12 @@ export function getPackageJson(directory: string) {
 	if (!packageJsonPath) throw new Error(`package.json not found in ${directory}`);
 
 	const text = packageJsonPath ? ts.sys.readFile(packageJsonPath) : undefined;
+	const packageJson = text ? JSON.parse(text) : {};
+	normalize(packageJson);
+
 	return {
 		directory: path.dirname(packageJsonPath),
 		path: packageJsonPath,
-		result: text ? JSON.parse(text) : undefined,
+		result: packageJson as normalize.Package,
 	};
 }

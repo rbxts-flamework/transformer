@@ -9,6 +9,7 @@ import { Logger } from "./logger";
 import { f } from "../util/factory";
 import chalk from "chalk";
 import { Cache } from "../util/cache";
+import { emitTypescriptMismatch } from "../util/functions/emitTypescriptMismatch";
 
 const EXCLUDED_NAME_DIR = new Set(["src/", "lib/", "out/"]);
 
@@ -122,12 +123,7 @@ export class SymbolProvider {
 			(this.componentsFile && !this.componentsFile.classes.has("Components")) ||
 			(this.networkingFile && !this.networkingFile.namespaces.has("Networking"))
 		) {
-			throw Logger.writeLine(
-				`${chalk.red("Failed to load! Symbols were not populated")}`,
-				"This is commonly caused by a TS version mismatch.",
-				"It is recommended that you use a local install of roblox-ts.",
-				`You can install a local version using ${chalk.green("npm install -D roblox-ts")}`,
-			);
+			emitTypescriptMismatch(this.state, chalk.red("Failed to load! Symbols were not populated"));
 		}
 
 		this.flamework = this.flameworkFile.getNamespace("Flamework");

@@ -8,6 +8,7 @@ import { viewFile } from "./information/viewFile";
 import { f } from "./util/factory";
 import chalk from "chalk";
 import { PKG_VERSION } from "./classes/rojoResolver/constants";
+import { emitTypescriptMismatch } from "./util/functions/emitTypescriptMismatch";
 
 export default function (program: ts.Program, config?: TransformerConfig) {
 	return (context: ts.TransformationContext): ((file: ts.SourceFile) => ts.Node) => {
@@ -30,12 +31,7 @@ export default function (program: ts.Program, config?: TransformerConfig) {
 
 		return (file: ts.SourceFile) => {
 			if (!ts.isSourceFile(file)) {
-				Logger.writeLine(
-					`${chalk.red("Failed to load! TS version mismatch detected")}`,
-					"It is recommended that you use a local install of roblox-ts.",
-					`You can install a local version using ${chalk.green("npm install -D roblox-ts")}`,
-				);
-				process.exit(1);
+				emitTypescriptMismatch(state, chalk.red("Failed to load! TS version mismatch detected"));
 			}
 
 			if (state.config.noSemanticDiagnostics !== true) {
