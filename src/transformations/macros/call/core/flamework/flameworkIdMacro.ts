@@ -1,5 +1,7 @@
 import { Diagnostics } from "../../../../../classes/diagnostics";
 import { f } from "../../../../../util/factory";
+import { serializedTypeToString } from "../../../../../util/rtti/serializedTypeToString";
+import { serializeType } from "../../../../../util/rtti/serializeType";
 import { CallMacro } from "../../../macro";
 
 export const FlameworkIdMacro: CallMacro = {
@@ -20,6 +22,11 @@ export const FlameworkIdMacro: CallMacro = {
 		const typeArgumentSymbol = state.getSymbol(typeName);
 		const declaration = typeArgumentSymbol?.declarations?.[0];
 		if (!declaration) Diagnostics.error(typeArgument, "Could not find declaration");
+
+		if (state.getSourceFile(node).fileName.includes("moddingTests")) {
+			// console.log(JSON.stringify(serializeType(state.typeChecker.getTypeAtLocation(typeArgument)), (_, v) => v).length);
+			return f.string(serializedTypeToString(serializeType(state.typeChecker.getTypeAtLocation(typeArgument))));
+		}
 
 		return f.string(state.getUid(declaration));
 	},
