@@ -38,9 +38,6 @@
 					"internalId": {
 						"type": "string"
 					},
-					"isExternal": {
-						"type": "boolean"
-					},
 					"decorators": {
 						"type": "array",
 						"items": {

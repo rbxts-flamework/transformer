@@ -1,7 +1,8 @@
+import assert from "assert";
 import ts from "typescript";
 import { Diagnostics } from "../../classes/diagnostics";
 import { TransformState } from "../../classes/transformState";
-import { DecoratorInfo, DecoratorWithNodes } from "../../types/decorators";
+import { DecoratorWithNodes } from "../../types/decorators";
 import { f } from "../../util/factory";
 import { addLeadingComment } from "../../util/functions/addLeadingComment";
 import { buildGuardFromType, buildGuardsFromType } from "../../util/functions/buildGuardFromType";
@@ -21,7 +22,6 @@ export function transformClassDeclaration(state: TransformState, node: ts.ClassD
 	const fields: [string, f.ConvertableExpression][] = [];
 
 	fields.push(["identifier", state.getUid(node)]);
-	fields.push(["flamework:isExternal", classInfo.isExternal]);
 
 	const constructor = node.members.find((x): x is ts.ConstructorDeclaration => f.is.constructor(x));
 	if (constructor) {
@@ -76,32 +76,16 @@ export function transformClassDeclaration(state: TransformState, node: ts.ClassD
 	}
 
 	const decorators = classInfo.decorators.filter((x): x is DecoratorWithNodes => x.type === "WithNodes");
-	const decoratorIds = new Array<string>();
-	const decoratorConfigs = new Map<string, ts.Expression>();
-	for (const decorator of decorators) {
-		const id = state.getUid(decorator.declaration);
-		const config = decorator.isFlameworkDecorator
-			? generateFlameworkConfig(
-					state,
-					node,
-					decorator,
-					f.is.object(decorator.arguments[0]) ? decorator.arguments[0] : f.object([]),
-			  )
-			: f.object({ type: "Arbitrary", arguments: decorator.arguments });
-
-		decoratorIds.push(id);
-		decoratorConfigs.set(id, config);
-	}
-
-	fields.push(["flamework:decorators", decoratorIds]);
-	for (const [id, config] of decoratorConfigs) {
-		fields.push([`flamework:decorators.${id}`, config]);
-	}
-
 	const importIdentifier = state.addFileImport(state.getSourceFile(node), "@flamework/core", "Reflect");
-	const realFields = fields.map(([name, value]) =>
+	const realFields: ts.Statement[] = fields.map(([name, value]) =>
 		f.statement(f.call(f.field(importIdentifier, "defineMetadata"), [node.name!, name, value])),
 	);
+
+	realFields.push(...getDecoratorFields(state, node));
+	for (const member of node.members) {
+		realFields.push(...getDecoratorFields(state, node, member));
+	}
+
 	ts.addSyntheticLeadingComment(
 		realFields[0],
 		ts.SyntaxKind.SingleLineCommentTrivia,
@@ -109,6 +93,77 @@ export function transformClassDeclaration(state: TransformState, node: ts.ClassD
 	);
 
 	return [updateClass(state, node, decorators), ...realFields];
+}
+
+function transformDecoratorConfig(
+	state: TransformState,
+	declaration: ts.ClassDeclaration,
+	symbol: ts.Symbol,
+	expr: ts.Expression,
+) {
+	if (!f.is.call(expr)) return [];
+
+	if (symbol === state.symbolProvider.componentsFile?.get("Component")) {
+		assert(!expr.arguments[0] || f.is.object(expr.arguments[0]));
+
+		const baseConfig = expr.arguments[0] ? expr.arguments[0] : f.object([]);
+		return [f.update.object(baseConfig, updateComponentConfig(state, declaration, [...baseConfig.properties]))];
+	}
+
+	return expr.arguments;
+}
+
+function getDecoratorFields(
+	state: TransformState,
+	declaration: ts.ClassDeclaration,
+	node: ts.ClassDeclaration | ts.ClassElement = declaration,
+) {
+	if (!node.decorators) return [];
+	if (!node.name) return [];
+
+	const propertyName = ts.getNameFromPropertyName(node.name);
+	assert(propertyName);
+
+	const importIdentifier = state.addFileImport(state.getSourceFile(node), "@flamework/core", "Reflect");
+	const decoratorStatements = new Array<ts.Statement>();
+
+	for (const decorator of node.decorators) {
+		const expr = decorator.expression;
+		const type = state.typeChecker.getTypeAtLocation(expr);
+		if (type.getProperty("_flamework_Decorator")) {
+			const identifier = f.is.call(expr) ? expr.expression : expr;
+			const symbol = state.getSymbol(identifier);
+			assert(symbol);
+			assert(symbol.valueDeclaration);
+
+			const args = transformDecoratorConfig(state, declaration, symbol, expr);
+			const propertyArgs = !f.is.classDeclaration(node)
+				? [propertyName, (node.modifierFlagsCache & ts.ModifierFlags.Static) !== 0]
+				: [];
+
+			decoratorStatements.push(
+				f.statement(
+					f.call(f.field(importIdentifier, "decorate"), [
+						declaration.name!,
+						state.getUid(symbol.valueDeclaration),
+						f.as(identifier, f.keywordType(ts.SyntaxKind.NeverKeyword)),
+						[...args],
+						...propertyArgs,
+					]),
+				),
+			);
+		}
+	}
+
+	if (decoratorStatements[0] && !f.is.classDeclaration(node)) {
+		ts.addSyntheticLeadingComment(
+			decoratorStatements[0],
+			ts.SyntaxKind.SingleLineCommentTrivia,
+			`(Flamework) ${declaration.name!.text}.${propertyName} metadata`,
+		);
+	}
+
+	return decoratorStatements;
 }
 
 function updateClass(state: TransformState, node: ts.ClassDeclaration, decorators: DecoratorWithNodes[]) {
@@ -452,20 +507,4 @@ function updateComponentConfig(
 	properties = updateAttributeGuards(state, node, properties) ?? properties;
 	properties = updateInstanceGuard(state, node, properties) ?? properties;
 	return properties;
-}
-
-function generateFlameworkConfig(
-	state: TransformState,
-	node: ts.ClassDeclaration,
-	decorator: DecoratorInfo,
-	config: ts.ObjectLiteralExpression,
-) {
-	let properties: ts.ObjectLiteralElementLike[] = [...config.properties];
-
-	// Automatically generate component attributes
-	if (decorator.name === "Component") {
-		properties = updateComponentConfig(state, node, properties);
-	}
-
-	return f.update.object(config, [f.propertyAssignmentDeclaration("type", decorator.name), ...properties]);
 }

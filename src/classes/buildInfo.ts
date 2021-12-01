@@ -16,7 +16,6 @@ interface BuildDecorator {
 interface BuildClass {
 	filePath: string;
 	internalId: string;
-	isExternal: boolean;
 	decorators: Array<BuildDecorator>;
 }
 
