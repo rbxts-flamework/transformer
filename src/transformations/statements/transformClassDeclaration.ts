@@ -495,7 +495,7 @@ function updateClass(state: TransformState, node: ts.ClassDeclaration, decorator
 			});
 
 			const constructorBody = constructorStatements.length
-				? addLeadingComment(f.block(constructorStatements), "Constructor Body")
+				? addLeadingComment(f.block(sanitizeConstructorBody(state, constructorStatements)), "Constructor Body")
 				: f.statement();
 
 			addLeadingComment(transformedProperties[0], "Property Declarations");
@@ -518,6 +518,37 @@ function updateClass(state: TransformState, node: ts.ClassDeclaration, decorator
 	}
 
 	return f.update.classDeclaration(node, node.name ? state.transformNode(node.name) : undefined, members, undefined);
+}
+
+function sanitizeConstructorBody(state: TransformState, statements: ts.Statement[]) {
+	const visitor = (node: ts.Node): ts.Node => {
+		if (f.is.accessExpression(node)) {
+			const name = ts.getNameOfAccessExpression(node);
+			const symbol = state.getSymbol(name);
+			if (
+				symbol &&
+				symbol.valueDeclaration &&
+				symbol.valueDeclaration.modifierFlagsCache & ts.ModifierFlags.Readonly &&
+				f.is.propertyDeclaration(symbol.valueDeclaration)
+			) {
+				const sanitizedThis = f.as(
+					f.self(),
+					f.typeLiteralType([
+						f.propertySignatureType(
+							symbol.valueDeclaration.name,
+							f.keywordType(ts.SyntaxKind.UnknownKeyword),
+						),
+					]),
+					true,
+				);
+				return f.is.elementAccessExpression(node)
+					? f.elementAccessExpression(sanitizedThis, name as ts.Expression)
+					: f.propertyAccessExpression(sanitizedThis, name as ts.MemberName);
+			}
+		}
+		return ts.visitEachChild(node, visitor, state.context);
+	};
+	return statements.map((node) => ts.visitNode(node, visitor));
 }
 
 function shouldAddSuperOnStart(state: TransformState, node: ts.ClassDeclaration) {
