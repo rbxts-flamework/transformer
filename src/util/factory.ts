@@ -145,6 +145,10 @@ export namespace f {
 		return factory.createElementAccessExpression(toExpression(expression), toExpression(index));
 	}
 
+	export function propertyAccessExpression(expression: ConvertableExpression, name: ts.MemberName) {
+		return factory.createPropertyAccessExpression(toExpression(expression), name);
+	}
+
 	export function arrowFunction(
 		body: ts.ConciseBody,
 		parameters?: ts.ParameterDeclaration[],
