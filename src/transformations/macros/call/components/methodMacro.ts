@@ -1,6 +1,7 @@
 import ts from "typescript";
 import { Diagnostics } from "../../../../classes/diagnostics";
 import { f } from "../../../../util/factory";
+import { getNodeUid, getSymbolUid } from "../../../../util/uid";
 import { CallMacro } from "../../macro";
 
 export const ComponentMethodMacro: CallMacro = {
@@ -20,12 +21,9 @@ export const ComponentMethodMacro: CallMacro = {
 		if (firstType) {
 			if (!f.is.referenceType(firstType)) Diagnostics.error(firstType, `Expected type reference`);
 
-			const declaration = state.getSymbol(firstType.typeName)?.declarations?.[0];
-			if (!declaration) Diagnostics.error(firstType, `Could not find declaration`);
-
 			return f.update.call(node, state.transform(node.expression), [
 				node.arguments[0],
-				f.as(f.string(state.getUid(declaration)), f.keywordType(ts.SyntaxKind.NeverKeyword)),
+				f.as(f.string(getNodeUid(state, firstType)), f.keywordType(ts.SyntaxKind.NeverKeyword)),
 			]);
 		} else {
 			const specifier = node.arguments[1];
@@ -35,12 +33,9 @@ export const ComponentMethodMacro: CallMacro = {
 			if (!symbol) Diagnostics.error(specifier, `Symbol could not be found`);
 			if (!state.classes.has(symbol)) return state.transform(node);
 
-			const declaration = symbol?.declarations?.[0];
-			if (!declaration) Diagnostics.error(specifier, `Declaration could not be found`);
-
 			return f.update.call(node, state.transform(node.expression), [
 				node.arguments[0],
-				f.as(f.string(state.getUid(declaration)), f.keywordType(ts.SyntaxKind.NeverKeyword)),
+				f.as(f.string(getSymbolUid(state, symbol, specifier)), f.keywordType(ts.SyntaxKind.NeverKeyword)),
 			]);
 		}
 	},

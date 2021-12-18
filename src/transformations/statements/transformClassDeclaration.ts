@@ -11,6 +11,33 @@ import { getPrettyName } from "../../util/functions/getPrettyName";
 import { getSuperClasses } from "../../util/functions/getSuperClasses";
 import { getUniversalTypeNodeGenerator } from "../../util/functions/getUniversalTypeNode";
 import { replaceValue } from "../../util/functions/replaceValue";
+import { getNodeUid, getSymbolUid, getTypeUid } from "../../util/uid";
+
+/*
+* = all metadata
+
+Class Metadata:
+
+identifier - always generated UID for the class
+
+flamework:implements - IDs of all implemented interfaces
+
+(class constructor is now treated as a method)
+# flamework:dependencies - IDs of all constructor parameter types
+# flamework:dependency_guards - guards for every constructor parameter
+
+Property/Method Metadata:
+
+flamework:return_type - ID of property type/method return type
+flamework:return_guard - guard for property type/method return type
+
+Method Metadata:
+
+flamework:parameters - IDs of all method parameter types
+flamework:parameter_guards - guards for every method parameter type
+flamework:parameter_names - the name of every parameter (excluding bindings)
+
+*/
 
 export function transformClassDeclaration(state: TransformState, node: ts.ClassDeclaration) {
 	const symbol = state.getSymbol(node);
@@ -20,24 +47,36 @@ export function transformClassDeclaration(state: TransformState, node: ts.ClassD
 	if (!classInfo) return state.transform(node);
 
 	const fields: [string, f.ConvertableExpression][] = [];
+	const requestedMetadata = getRequestedMetadata(state, node);
+	console.log("got requested metadata", requestedMetadata);
 
-	fields.push(["identifier", state.getUid(node)]);
+	fields.push(["identifier", getNodeUid(state, node)]);
 
 	const constructor = node.members.find((x): x is ts.ConstructorDeclaration => f.is.constructor(x));
 	if (constructor) {
-		const constructorDependencies = [];
-		for (const param of constructor.parameters) {
-			if (!f.is.referenceType(param.type)) Diagnostics.error(param, `Expected type reference`);
-
-			const symbol = state.getSymbol(param.type.typeName);
-			const declaration = symbol?.getDeclarations()?.[0];
-			if (!declaration) Diagnostics.error(param, `Could not find declaration`);
-
-			constructorDependencies.push(state.getUid(declaration));
-		}
-		if (constructor.parameters.length > 0) {
-			fields.push(["flamework:dependencies", constructorDependencies]);
-		}
+		fields.push(...generateMethodMetadata(state, requestedMetadata, constructor));
+		// if (hasRequestedMetadata(requestedMetadata, "flamework:dependencies")) {
+		// 	const constructorDependencies = [];
+		// 	for (const param of constructor.parameters) {
+		// 		if (!param.type) Diagnostics.error(param, `Parameter type expected`);
+		// 		constructorDependencies.push(getNodeUid(state, param.type));
+		// 	}
+		// 	if (constructor.parameters.length > 0) {
+		// 		fields.push(["flamework:dependencies", constructorDependencies]);
+		// 	}
+		// }
+		// if (hasRequestedMetadata(requestedMetadata, "flamework:dependency_guards")) {
+		// 	const constructorGuards = [];
+		// 	for (const param of constructor.parameters) {
+		// 		if (!param.type) Diagnostics.error(param, `Parameter type expected`);
+		// 		const type = state.typeChecker.getTypeAtLocation(param.type);
+		// 		const guard = buildGuardFromType(state, state.getSourceFile(node), type);
+		// 		constructorGuards.push(guard);
+		// 	}
+		// 	if (constructor.parameters.length > 0) {
+		// 		fields.push(["flamework:dependency_guards", constructorGuards]);
+		// 	}
+		// }
 	}
 
 	if (node.heritageClauses) {
@@ -46,18 +85,14 @@ export function transformClassDeclaration(state: TransformState, node: ts.ClassD
 			if (clause.token !== ts.SyntaxKind.ImplementsKeyword) continue;
 
 			for (const type of clause.types) {
-				if (!ts.isIdentifier(type.expression)) continue;
-
-				const symbol = state.getSymbol(type.expression);
-				const declaration = symbol?.declarations?.[0];
-				if (!declaration) continue;
-
-				implementClauses.push(f.string(state.getUid(declaration)));
+				implementClauses.push(f.string(getNodeUid(state, type)));
 			}
 		}
 
 		if (classInfo.decorators.some((x) => x.isFlameworkDecorator && x.name === "Component")) {
-			const onStartId = state.getUid(state.symbolProvider.flameworkFile.get("OnStart").declarations![0]);
+			const onStartId = getSymbolUid(state, state.symbolProvider.flameworkFile.get("OnStart"));
+			assert(onStartId);
+			console.log(onStartId);
 			if (!implementClauses.some((x) => x.text === onStartId)) {
 				const existingOnStart = node.members.find((x) =>
 					x.name && "text" in x.name ? x.name.text === "onStart" : false,
@@ -70,7 +105,7 @@ export function transformClassDeclaration(state: TransformState, node: ts.ClassD
 			}
 		}
 
-		if (implementClauses.length > 0) {
+		if (implementClauses.length > 0 && hasRequestedMetadata(requestedMetadata, "flamework:implements")) {
 			fields.push(["flamework:implements", f.array(implementClauses, false)]);
 		}
 	}
@@ -83,7 +118,9 @@ export function transformClassDeclaration(state: TransformState, node: ts.ClassD
 
 	realFields.push(...getDecoratorFields(state, node));
 	for (const member of node.members) {
-		realFields.push(...getDecoratorFields(state, node, member));
+		if (!f.is.methodDeclaration(member) || member.body) {
+			realFields.push(...getDecoratorFields(state, node, member));
+		}
 	}
 
 	ts.addSyntheticLeadingComment(
@@ -93,6 +130,104 @@ export function transformClassDeclaration(state: TransformState, node: ts.ClassD
 	);
 
 	return [updateClass(state, node, decorators), ...realFields];
+}
+
+function hasRequestedMetadata(set: Set<string>, name: string) {
+	return set.has(name) || set.has("*");
+}
+
+function getRequestedMetadata(state: TransformState, node: ts.Node): Set<string> {
+	const metadata = new Set<string>();
+	if (node.decorators) {
+		for (const decorator of node.decorators) {
+			const expression = decorator.expression;
+			const symbol = state.getSymbol(f.is.call(expression) ? expression.expression : expression);
+			if (!symbol || !symbol.declarations) continue;
+
+			for (const declaration of symbol.declarations) {
+				const tags = ts.getJSDocTags(declaration);
+				for (const tag of tags) {
+					if (tag.tagName.text === "metadata" && typeof tag.comment === "string") {
+						for (const name of tag.comment.split(/\s+/)) {
+							metadata.add(name);
+						}
+					}
+				}
+			}
+		}
+	}
+	return metadata;
+}
+
+/*
+flamework:return_type - ID of property type/method return type
+flamework:return_guard - guard for property type/method return type
+
+flamework:parameters - IDs of all method parameter types
+flamework:parameter_guards - guards for every method parameter type
+flamework:parameter_names - the name of every parameter (excluding bindings)
+*/
+
+function generateMethodMetadata(state: TransformState, metadata: Set<string>, method: ts.FunctionLikeDeclaration) {
+	const fields = new Array<[string, f.ConvertableExpression]>();
+	const baseSignature = state.typeChecker.getSignatureFromDeclaration(method);
+	if (!baseSignature) return [];
+
+	if (hasRequestedMetadata(metadata, "flamework:return_type")) {
+		if (!method.type) {
+			const id = getTypeUid(state, baseSignature.getReturnType(), method.type ?? method.name ?? method);
+			fields.push(["flamework:return_type", id]);
+		} else {
+			const id = getNodeUid(state, method.type);
+			fields.push(["flamework:return_type", id]);
+		}
+	}
+
+	if (hasRequestedMetadata(metadata, "flamework:return_guard")) {
+		const guard = buildGuardFromType(state, state.getSourceFile(method), baseSignature.getReturnType());
+		fields.push(["flamework:return_guard", guard]);
+	}
+
+	const parameters = new Array<string>();
+	const parameterNames = new Array<string>();
+	const parameterGuards = new Array<ts.Expression>();
+
+	for (const parameter of method.parameters) {
+		if (!parameter.type) Diagnostics.error(parameter, `Expected parameter type`);
+
+		if (hasRequestedMetadata(metadata, "flamework:parameters")) {
+			const id = getNodeUid(state, parameter.type);
+			parameters.push(id);
+		}
+
+		if (hasRequestedMetadata(metadata, "flamework:parameter_names")) {
+			if (f.is.identifier(parameter.name)) {
+				parameterNames.push(parameter.name.text);
+			} else {
+				parameterNames.push("_binding_");
+			}
+		}
+
+		if (hasRequestedMetadata(metadata, "flamework:parameter_guards")) {
+			const type = state.typeChecker.getTypeAtLocation(parameter.type);
+			const guard = buildGuardFromType(state, state.getSourceFile(method), type);
+			parameterGuards.push(guard);
+		}
+	}
+
+	if (parameters.length > 0) {
+		fields.push(["flamework:parameters", parameters]);
+	}
+
+	if (parameterNames.length > 0) {
+		fields.push(["flamework:parameter_names", parameterNames]);
+	}
+
+	if (parameterGuards.length > 0) {
+		fields.push(["flamework:parameter_guards", parameterGuards]);
+	}
+
+	return fields;
 }
 
 function transformDecoratorConfig(
@@ -121,11 +256,22 @@ function getDecoratorFields(
 	if (!node.decorators) return [];
 	if (!node.name) return [];
 
+	const requestedMetadata = getRequestedMetadata(state, node);
 	const propertyName = ts.getNameFromPropertyName(node.name);
 	assert(propertyName);
 
 	const importIdentifier = state.addFileImport(state.getSourceFile(node), "@flamework/core", "Reflect");
 	const decoratorStatements = new Array<ts.Statement>();
+
+	if (f.is.methodDeclaration(node)) {
+		decoratorStatements.push(
+			...generateMethodMetadata(state, requestedMetadata, node).map(([name, value]) =>
+				f.statement(
+					f.call(f.field(importIdentifier, "defineMetadata"), [declaration.name!, name, value, propertyName]),
+				),
+			),
+		);
+	}
 
 	for (const decorator of node.decorators) {
 		const expr = decorator.expression;
@@ -145,7 +291,7 @@ function getDecoratorFields(
 				f.statement(
 					f.call(f.field(importIdentifier, "decorate"), [
 						declaration.name!,
-						state.getUid(symbol.valueDeclaration),
+						getSymbolUid(state, symbol, identifier),
 						f.as(identifier, f.keywordType(ts.SyntaxKind.NeverKeyword)),
 						[...args],
 						...propertyArgs,

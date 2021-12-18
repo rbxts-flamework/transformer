@@ -4,12 +4,13 @@ import { TransformState } from "../../classes/transformState";
 import { ClassInfo } from "../../types/classes";
 import { DecoratorInfo } from "../../types/decorators";
 import { f } from "../../util/factory";
+import { getNodeUid, getSymbolUid } from "../../util/uid";
 
 export function viewClassDeclaration(state: TransformState, node: ts.ClassDeclaration) {
 	const { symbolProvider } = state;
 
 	const symbol = state.getSymbol(node);
-	const internalId = state.getUid(node);
+	const internalId = getNodeUid(state, node);
 
 	if (!node.name || !symbol) return;
 
@@ -36,7 +37,7 @@ export function viewClassDeclaration(state: TransformState, node: ts.ClassDeclar
 				type: "WithNodes",
 				declaration: symbol.declarations[0],
 				arguments: decorator.expression.arguments.map((x) => x),
-				internalId: state.getUid(symbol.declarations[0]),
+				internalId: getSymbolUid(state, symbol, decorator.expression.expression),
 				isFlameworkDecorator,
 				name,
 				symbol,

@@ -1,5 +1,6 @@
 import { Diagnostics } from "../../../../../classes/diagnostics";
 import { f } from "../../../../../util/factory";
+import { getNodeUid } from "../../../../../util/uid";
 import { CallMacro } from "../../../macro";
 
 export const FlameworkIdMacro: CallMacro = {
@@ -11,16 +12,6 @@ export const FlameworkIdMacro: CallMacro = {
 		const typeArgument = node.typeArguments?.[0];
 		if (!typeArgument) Diagnostics.error(node, "Expected type argument");
 
-		const typeName = f.is.referenceType(typeArgument)
-			? typeArgument.typeName
-			: f.is.queryType(typeArgument)
-			? typeArgument.exprName
-			: Diagnostics.error(typeArgument ?? node, `Invalid type argument`);
-
-		const typeArgumentSymbol = state.getSymbol(typeName);
-		const declaration = typeArgumentSymbol?.declarations?.[0];
-		if (!declaration) Diagnostics.error(typeArgument, "Could not find declaration");
-
-		return f.string(state.getUid(declaration));
+		return f.string(getNodeUid(state, typeArgument));
 	},
 };
