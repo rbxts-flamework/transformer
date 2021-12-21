@@ -13,32 +13,6 @@ import { getUniversalTypeNodeGenerator } from "../../util/functions/getUniversal
 import { replaceValue } from "../../util/functions/replaceValue";
 import { getNodeUid, getSymbolUid, getTypeUid } from "../../util/uid";
 
-/*
-* = all metadata
-
-Class Metadata:
-
-identifier - always generated UID for the class
-
-flamework:implements - IDs of all implemented interfaces
-
-(class constructor is now treated as a method)
-# flamework:dependencies - IDs of all constructor parameter types
-# flamework:dependency_guards - guards for every constructor parameter
-
-Property/Method Metadata:
-
-flamework:return_type - ID of property type/method return type
-flamework:return_guard - guard for property type/method return type
-
-Method Metadata:
-
-flamework:parameters - IDs of all method parameter types
-flamework:parameter_guards - guards for every method parameter type
-flamework:parameter_names - the name of every parameter (excluding bindings)
-
-*/
-
 export function transformClassDeclaration(state: TransformState, node: ts.ClassDeclaration) {
 	const symbol = state.getSymbol(node);
 	if (!symbol || !node.name) return state.transform(node);
@@ -48,35 +22,12 @@ export function transformClassDeclaration(state: TransformState, node: ts.ClassD
 
 	const fields: [string, f.ConvertableExpression][] = [];
 	const requestedMetadata = getRequestedMetadata(state, node);
-	console.log("got requested metadata", requestedMetadata);
 
 	fields.push(["identifier", getNodeUid(state, node)]);
 
 	const constructor = node.members.find((x): x is ts.ConstructorDeclaration => f.is.constructor(x));
 	if (constructor) {
 		fields.push(...generateMethodMetadata(state, requestedMetadata, constructor));
-		// if (hasRequestedMetadata(requestedMetadata, "flamework:dependencies")) {
-		// 	const constructorDependencies = [];
-		// 	for (const param of constructor.parameters) {
-		// 		if (!param.type) Diagnostics.error(param, `Parameter type expected`);
-		// 		constructorDependencies.push(getNodeUid(state, param.type));
-		// 	}
-		// 	if (constructor.parameters.length > 0) {
-		// 		fields.push(["flamework:dependencies", constructorDependencies]);
-		// 	}
-		// }
-		// if (hasRequestedMetadata(requestedMetadata, "flamework:dependency_guards")) {
-		// 	const constructorGuards = [];
-		// 	for (const param of constructor.parameters) {
-		// 		if (!param.type) Diagnostics.error(param, `Parameter type expected`);
-		// 		const type = state.typeChecker.getTypeAtLocation(param.type);
-		// 		const guard = buildGuardFromType(state, state.getSourceFile(node), type);
-		// 		constructorGuards.push(guard);
-		// 	}
-		// 	if (constructor.parameters.length > 0) {
-		// 		fields.push(["flamework:dependency_guards", constructorGuards]);
-		// 	}
-		// }
 	}
 
 	if (node.heritageClauses) {
@@ -92,7 +43,6 @@ export function transformClassDeclaration(state: TransformState, node: ts.ClassD
 		if (classInfo.decorators.some((x) => x.isFlameworkDecorator && x.name === "Component")) {
 			const onStartId = getSymbolUid(state, state.symbolProvider.flameworkFile.get("OnStart"));
 			assert(onStartId);
-			console.log(onStartId);
 			if (!implementClauses.some((x) => x.text === onStartId)) {
 				const existingOnStart = node.members.find((x) =>
 					x.name && "text" in x.name ? x.name.text === "onStart" : false,
