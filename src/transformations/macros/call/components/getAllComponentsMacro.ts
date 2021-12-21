@@ -23,7 +23,7 @@ export const ComponentGetAllComponentsMacro: CallMacro = {
 				f.as(f.string(state.getUid(declaration)), f.keywordType(ts.SyntaxKind.NeverKeyword)),
 			]);
 		} else {
-			const specifier = node.arguments[1];
+			const specifier = node.arguments[0];
 			if (!specifier) Diagnostics.error(node, `No specifier found`);
 
 			const symbol = state.getSymbol(specifier);
