@@ -76,4 +76,12 @@ export class Logger {
 			this.benchmarkOutput = "";
 		}
 	}
+
+	static {
+		// Workaround for vscode PTY not having color highlighting.
+		if (process.env.VSCODE_CWD !== undefined) {
+			// ANSI 256
+			chalk.level = 2;
+		}
+	}
 }
