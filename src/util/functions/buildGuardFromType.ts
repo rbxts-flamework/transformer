@@ -115,8 +115,8 @@ export function buildGuardFromType(state: TransformState, file: ts.SourceFile, t
 
 	if (isConditionalType(type)) {
 		return f.call(f.field(tId, "union"), [
-			buildGuardFromType(state, file, type.resolvedTrueType),
-			buildGuardFromType(state, file, type.resolvedFalseType),
+			buildGuardFromType(state, file, type.resolvedTrueType!),
+			buildGuardFromType(state, file, type.resolvedFalseType!),
 		]);
 	}
 

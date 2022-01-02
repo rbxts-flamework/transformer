@@ -286,11 +286,12 @@ export namespace f {
 							imports.map((x) => {
 								if (Array.isArray(x)) {
 									return factory.createImportSpecifier(
+										false,
 										typeof x[0] === "string" ? f.identifier(x[0]) : x[0],
 										x[1],
 									);
 								} else {
-									return factory.createImportSpecifier(undefined, x);
+									return factory.createImportSpecifier(false, undefined, x);
 								}
 							}),
 					  )
