@@ -118,6 +118,28 @@ flamework:parameter_guards - guards for every method parameter type
 flamework:parameter_names - the name of every parameter (excluding bindings)
 */
 
+function generateFieldMetadata(state: TransformState, metadata: Set<string>, field: ts.PropertyDeclaration) {
+	const fields = new Array<[string, f.ConvertableExpression]>();
+	const type = state.typeChecker.getTypeAtLocation(field);
+
+	if (hasRequestedMetadata(metadata, "flamework:return_type")) {
+		if (!field.type) {
+			const id = getTypeUid(state, type, field.name ?? field);
+			fields.push(["flamework:return_type", id]);
+		} else {
+			const id = getNodeUid(state, field.type);
+			fields.push(["flamework:return_type", id]);
+		}
+	}
+
+	if (hasRequestedMetadata(metadata, "flamework:return_guard")) {
+		const guard = buildGuardFromType(state, state.getSourceFile(field), type);
+		fields.push(["flamework:return_guard", guard]);
+	}
+
+	return fields;
+}
+
 function generateMethodMetadata(state: TransformState, metadata: Set<string>, method: ts.FunctionLikeDeclaration) {
 	const fields = new Array<[string, f.ConvertableExpression]>();
 	const baseSignature = state.typeChecker.getSignatureFromDeclaration(method);
@@ -125,7 +147,7 @@ function generateMethodMetadata(state: TransformState, metadata: Set<string>, me
 
 	if (hasRequestedMetadata(metadata, "flamework:return_type")) {
 		if (!method.type) {
-			const id = getTypeUid(state, baseSignature.getReturnType(), method.type ?? method.name ?? method);
+			const id = getTypeUid(state, baseSignature.getReturnType(), method.name ?? method);
 			fields.push(["flamework:return_type", id]);
 		} else {
 			const id = getNodeUid(state, method.type);
@@ -213,9 +235,16 @@ function getDecoratorFields(
 	const importIdentifier = state.addFileImport(state.getSourceFile(node), "@flamework/core", "Reflect");
 	const decoratorStatements = new Array<ts.Statement>();
 
+	let generatedMetadata;
 	if (f.is.methodDeclaration(node)) {
+		generatedMetadata = generateMethodMetadata(state, requestedMetadata, node);
+	} else if (f.is.propertyDeclaration(node)) {
+		generatedMetadata = generateFieldMetadata(state, requestedMetadata, node);
+	}
+
+	if (generatedMetadata) {
 		decoratorStatements.push(
-			...generateMethodMetadata(state, requestedMetadata, node).map(([name, value]) =>
+			...generatedMetadata.map(([name, value]) =>
 				f.statement(
 					f.call(f.field(importIdentifier, "defineMetadata"), [declaration.name!, name, value, propertyName]),
 				),
