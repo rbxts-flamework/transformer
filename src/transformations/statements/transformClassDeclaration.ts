@@ -88,6 +88,16 @@ function hasRequestedMetadata(set: Set<string>, name: string) {
 
 function getRequestedMetadata(state: TransformState, node: ts.Node): Set<string> {
 	const metadata = new Set<string>();
+
+	const tags = ts.getJSDocTags(node);
+	for (const tag of tags) {
+		if (tag.tagName.text === "metadata" && typeof tag.comment === "string") {
+			for (const name of tag.comment.split(/\s+/)) {
+				metadata.add(name);
+			}
+		}
+	}
+
 	if (node.decorators) {
 		for (const decorator of node.decorators) {
 			const expression = decorator.expression;
@@ -95,17 +105,30 @@ function getRequestedMetadata(state: TransformState, node: ts.Node): Set<string>
 			if (!symbol || !symbol.declarations) continue;
 
 			for (const declaration of symbol.declarations) {
-				const tags = ts.getJSDocTags(declaration);
-				for (const tag of tags) {
-					if (tag.tagName.text === "metadata" && typeof tag.comment === "string") {
-						for (const name of tag.comment.split(/\s+/)) {
-							metadata.add(name);
+				getRequestedMetadata(state, declaration).forEach((v) => metadata.add(v));
+			}
+		}
+	}
+
+	// Interfaces are able to request metadata for their own property/methods.
+	if (ts.isClassElement(node) && node.name) {
+		const name = ts.getNameFromPropertyName(node.name);
+		if (name && ts.isClassLike(node.parent)) {
+			const implementNodes = ts.getEffectiveImplementsTypeNodes(node.parent);
+			if (implementNodes) {
+				for (const implement of implementNodes) {
+					const symbol = state.getSymbol(implement.expression);
+					const member = symbol?.members?.get(ts.escapeLeadingUnderscores(name));
+					if (member && member.declarations) {
+						for (const declaration of member.declarations) {
+							getRequestedMetadata(state, declaration).forEach((v) => metadata.add(v));
 						}
 					}
 				}
 			}
 		}
 	}
+
 	return metadata;
 }
 
@@ -225,7 +248,6 @@ function getDecoratorFields(
 	declaration: ts.ClassDeclaration,
 	node: ts.ClassDeclaration | ts.ClassElement = declaration,
 ) {
-	if (!node.decorators) return [];
 	if (!node.name) return [];
 
 	const requestedMetadata = getRequestedMetadata(state, node);
@@ -252,31 +274,33 @@ function getDecoratorFields(
 		);
 	}
 
-	for (const decorator of node.decorators) {
-		const expr = decorator.expression;
-		const type = state.typeChecker.getTypeAtLocation(expr);
-		if (type.getProperty("_flamework_Decorator")) {
-			const identifier = f.is.call(expr) ? expr.expression : expr;
-			const symbol = state.getSymbol(identifier);
-			assert(symbol);
-			assert(symbol.valueDeclaration);
+	if (node.decorators) {
+		for (const decorator of node.decorators) {
+			const expr = decorator.expression;
+			const type = state.typeChecker.getTypeAtLocation(expr);
+			if (type.getProperty("_flamework_Decorator")) {
+				const identifier = f.is.call(expr) ? expr.expression : expr;
+				const symbol = state.getSymbol(identifier);
+				assert(symbol);
+				assert(symbol.valueDeclaration);
 
-			const args = transformDecoratorConfig(state, declaration, symbol, expr);
-			const propertyArgs = !f.is.classDeclaration(node)
-				? [propertyName, (node.modifierFlagsCache & ts.ModifierFlags.Static) !== 0]
-				: [];
+				const args = transformDecoratorConfig(state, declaration, symbol, expr);
+				const propertyArgs = !f.is.classDeclaration(node)
+					? [propertyName, (node.modifierFlagsCache & ts.ModifierFlags.Static) !== 0]
+					: [];
 
-			decoratorStatements.push(
-				f.statement(
-					f.call(f.field(importIdentifier, "decorate"), [
-						declaration.name!,
-						getSymbolUid(state, symbol, identifier),
-						f.as(identifier, f.keywordType(ts.SyntaxKind.NeverKeyword)),
-						[...args],
-						...propertyArgs,
-					]),
-				),
-			);
+				decoratorStatements.push(
+					f.statement(
+						f.call(f.field(importIdentifier, "decorate"), [
+							declaration.name!,
+							getSymbolUid(state, symbol, identifier),
+							f.as(identifier, f.keywordType(ts.SyntaxKind.NeverKeyword)),
+							[...args],
+							...propertyArgs,
+						]),
+					),
+				);
+			}
 		}
 	}
 
