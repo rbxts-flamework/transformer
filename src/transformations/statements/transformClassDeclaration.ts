@@ -1,6 +1,7 @@
 import assert from "assert";
 import ts from "typescript";
 import { Diagnostics } from "../../classes/diagnostics";
+import { NodeMetadata } from "../../classes/nodeMetadata";
 import { TransformState } from "../../classes/transformState";
 import { DecoratorWithNodes } from "../../types/decorators";
 import { f } from "../../util/factory";
@@ -21,13 +22,13 @@ export function transformClassDeclaration(state: TransformState, node: ts.ClassD
 	if (!classInfo) return state.transform(node);
 
 	const fields: [string, f.ConvertableExpression][] = [];
-	const requestedMetadata = getRequestedMetadata(state, node);
+	const metadata = new NodeMetadata(state, node);
 
 	fields.push(["identifier", getNodeUid(state, node)]);
 
 	const constructor = node.members.find((x): x is ts.ConstructorDeclaration => f.is.constructor(x));
 	if (constructor) {
-		fields.push(...generateMethodMetadata(state, requestedMetadata, constructor));
+		fields.push(...generateMethodMetadata(state, metadata, constructor));
 	}
 
 	if (node.heritageClauses) {
@@ -55,7 +56,7 @@ export function transformClassDeclaration(state: TransformState, node: ts.ClassD
 			}
 		}
 
-		if (implementClauses.length > 0 && hasRequestedMetadata(requestedMetadata, "flamework:implements")) {
+		if (implementClauses.length > 0 && metadata.isRequested("flamework:implements")) {
 			fields.push(["flamework:implements", f.array(implementClauses, false)]);
 		}
 	}
@@ -66,7 +67,7 @@ export function transformClassDeclaration(state: TransformState, node: ts.ClassD
 		f.statement(f.call(f.field(importIdentifier, "defineMetadata"), [node.name!, name, value])),
 	);
 
-	realFields.push(...getDecoratorFields(state, node));
+	realFields.push(...getDecoratorFields(state, node, node, metadata));
 	for (const member of node.members) {
 		if (!f.is.methodDeclaration(member) || member.body) {
 			realFields.push(...getDecoratorFields(state, node, member));
@@ -82,56 +83,6 @@ export function transformClassDeclaration(state: TransformState, node: ts.ClassD
 	return [updateClass(state, node, decorators), ...realFields];
 }
 
-function hasRequestedMetadata(set: Set<string>, name: string) {
-	return set.has(name) || set.has("*");
-}
-
-function getRequestedMetadata(state: TransformState, node: ts.Node): Set<string> {
-	const metadata = new Set<string>();
-
-	const tags = ts.getJSDocTags(node);
-	for (const tag of tags) {
-		if (tag.tagName.text === "metadata" && typeof tag.comment === "string") {
-			for (const name of tag.comment.split(/\s+/)) {
-				metadata.add(name);
-			}
-		}
-	}
-
-	if (node.decorators) {
-		for (const decorator of node.decorators) {
-			const expression = decorator.expression;
-			const symbol = state.getSymbol(f.is.call(expression) ? expression.expression : expression);
-			if (!symbol || !symbol.declarations) continue;
-
-			for (const declaration of symbol.declarations) {
-				getRequestedMetadata(state, declaration).forEach((v) => metadata.add(v));
-			}
-		}
-	}
-
-	// Interfaces are able to request metadata for their own property/methods.
-	if (ts.isClassElement(node) && node.name) {
-		const name = ts.getNameFromPropertyName(node.name);
-		if (name && ts.isClassLike(node.parent)) {
-			const implementNodes = ts.getEffectiveImplementsTypeNodes(node.parent);
-			if (implementNodes) {
-				for (const implement of implementNodes) {
-					const symbol = state.getSymbol(implement.expression);
-					const member = symbol?.members?.get(ts.escapeLeadingUnderscores(name));
-					if (member && member.declarations) {
-						for (const declaration of member.declarations) {
-							getRequestedMetadata(state, declaration).forEach((v) => metadata.add(v));
-						}
-					}
-				}
-			}
-		}
-	}
-
-	return metadata;
-}
-
 /*
 flamework:return_type - ID of property type/method return type
 flamework:return_guard - guard for property type/method return type
@@ -141,11 +92,11 @@ flamework:parameter_guards - guards for every method parameter type
 flamework:parameter_names - the name of every parameter (excluding bindings)
 */
 
-function generateFieldMetadata(state: TransformState, metadata: Set<string>, field: ts.PropertyDeclaration) {
+function generateFieldMetadata(state: TransformState, metadata: NodeMetadata, field: ts.PropertyDeclaration) {
 	const fields = new Array<[string, f.ConvertableExpression]>();
 	const type = state.typeChecker.getTypeAtLocation(field);
 
-	if (hasRequestedMetadata(metadata, "flamework:return_type")) {
+	if (metadata.isRequested("flamework:return_type")) {
 		if (!field.type) {
 			const id = getTypeUid(state, type, field.name ?? field);
 			fields.push(["flamework:return_type", id]);
@@ -155,7 +106,7 @@ function generateFieldMetadata(state: TransformState, metadata: Set<string>, fie
 		}
 	}
 
-	if (hasRequestedMetadata(metadata, "flamework:return_guard")) {
+	if (metadata.isRequested("flamework:return_guard")) {
 		const guard = buildGuardFromType(state, state.getSourceFile(field), type);
 		fields.push(["flamework:return_guard", guard]);
 	}
@@ -163,12 +114,12 @@ function generateFieldMetadata(state: TransformState, metadata: Set<string>, fie
 	return fields;
 }
 
-function generateMethodMetadata(state: TransformState, metadata: Set<string>, method: ts.FunctionLikeDeclaration) {
+function generateMethodMetadata(state: TransformState, metadata: NodeMetadata, method: ts.FunctionLikeDeclaration) {
 	const fields = new Array<[string, f.ConvertableExpression]>();
 	const baseSignature = state.typeChecker.getSignatureFromDeclaration(method);
 	if (!baseSignature) return [];
 
-	if (hasRequestedMetadata(metadata, "flamework:return_type")) {
+	if (metadata.isRequested("flamework:return_type")) {
 		if (!method.type) {
 			const id = getTypeUid(state, baseSignature.getReturnType(), method.name ?? method);
 			fields.push(["flamework:return_type", id]);
@@ -178,7 +129,7 @@ function generateMethodMetadata(state: TransformState, metadata: Set<string>, me
 		}
 	}
 
-	if (hasRequestedMetadata(metadata, "flamework:return_guard")) {
+	if (metadata.isRequested("flamework:return_guard")) {
 		const guard = buildGuardFromType(state, state.getSourceFile(method), baseSignature.getReturnType());
 		fields.push(["flamework:return_guard", guard]);
 	}
@@ -190,12 +141,12 @@ function generateMethodMetadata(state: TransformState, metadata: Set<string>, me
 	for (const parameter of method.parameters) {
 		if (!parameter.type) Diagnostics.error(parameter, `Expected parameter type`);
 
-		if (hasRequestedMetadata(metadata, "flamework:parameters")) {
+		if (metadata.isRequested("flamework:parameters")) {
 			const id = getNodeUid(state, parameter.type);
 			parameters.push(id);
 		}
 
-		if (hasRequestedMetadata(metadata, "flamework:parameter_names")) {
+		if (metadata.isRequested("flamework:parameter_names")) {
 			if (f.is.identifier(parameter.name)) {
 				parameterNames.push(parameter.name.text);
 			} else {
@@ -203,7 +154,7 @@ function generateMethodMetadata(state: TransformState, metadata: Set<string>, me
 			}
 		}
 
-		if (hasRequestedMetadata(metadata, "flamework:parameter_guards")) {
+		if (metadata.isRequested("flamework:parameter_guards")) {
 			const type = state.typeChecker.getTypeAtLocation(parameter.type);
 			const guard = buildGuardFromType(state, state.getSourceFile(method), type);
 			parameterGuards.push(guard);
@@ -246,22 +197,21 @@ function transformDecoratorConfig(
 function getDecoratorFields(
 	state: TransformState,
 	declaration: ts.ClassDeclaration,
-	node: ts.ClassDeclaration | ts.ClassElement = declaration,
+	node: ts.ClassDeclaration | ts.ClassElement,
+	metadata = new NodeMetadata(state, node),
 ) {
 	if (!node.name) return [];
 
-	const requestedMetadata = getRequestedMetadata(state, node);
 	const propertyName = ts.getNameFromPropertyName(node.name);
 	assert(propertyName);
-
 	const importIdentifier = state.addFileImport(state.getSourceFile(node), "@flamework/core", "Reflect");
 	const decoratorStatements = new Array<ts.Statement>();
 
 	let generatedMetadata;
 	if (f.is.methodDeclaration(node)) {
-		generatedMetadata = generateMethodMetadata(state, requestedMetadata, node);
+		generatedMetadata = generateMethodMetadata(state, metadata, node);
 	} else if (f.is.propertyDeclaration(node)) {
-		generatedMetadata = generateFieldMetadata(state, requestedMetadata, node);
+		generatedMetadata = generateFieldMetadata(state, metadata, node);
 	}
 
 	if (generatedMetadata) {
@@ -312,7 +262,55 @@ function getDecoratorFields(
 		);
 	}
 
+	const constraintTypes = metadata.getType("constraint");
+	const nodeType = state.typeChecker.getTypeAtLocation(node);
+	for (const constraintType of constraintTypes ?? []) {
+		if (!state.typeChecker.isTypeAssignableTo(nodeType, constraintType)) {
+			Diagnostics.addDiagnostic(
+				getAssignabilityDiagnostics(
+					node.name ?? node,
+					nodeType,
+					constraintType,
+					metadata.getTrace(constraintType),
+				),
+			);
+		}
+	}
+
 	return decoratorStatements;
+}
+
+function formatType(type: ts.Type) {
+	const typeNode = type.checker.typeToTypeNode(
+		type,
+		undefined,
+		ts.NodeBuilderFlags.InTypeAlias | ts.NodeBuilderFlags.IgnoreErrors,
+	)!;
+
+	const printer = ts.createPrinter();
+	return printer.printNode(ts.EmitHint.Unspecified, typeNode, undefined!);
+}
+
+function getAssignabilityDiagnostics(
+	node: ts.Node,
+	sourceType: ts.Type,
+	constraintType: ts.Type,
+	trace?: ts.Node,
+): ts.DiagnosticWithLocation {
+	const diagnostic = Diagnostics.createDiagnostic(
+		node,
+		ts.DiagnosticCategory.Error,
+		`Type '${formatType(sourceType)}' does not satify constraint '${formatType(constraintType)}'`,
+	);
+
+	if (trace) {
+		ts.addRelatedInfo(
+			diagnostic,
+			Diagnostics.createDiagnostic(trace, ts.DiagnosticCategory.Message, "The constraint is defined here."),
+		);
+	}
+
+	return diagnostic;
 }
 
 function updateClass(state: TransformState, node: ts.ClassDeclaration, decorators: DecoratorWithNodes[]) {
