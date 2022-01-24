@@ -518,7 +518,15 @@ function updateClass(state: TransformState, node: ts.ClassDeclaration, decorator
 		members = members.map((node) => state.transformNode(node));
 	}
 
-	return f.update.classDeclaration(node, node.name ? state.transformNode(node.name) : undefined, members, undefined);
+	return f.update.classDeclaration(
+		node,
+		node.name ? state.transformNode(node.name) : undefined,
+		members,
+		node.decorators?.filter((decorator) => {
+			const type = state.typeChecker.getTypeAtLocation(decorator.expression);
+			return type.getProperty("_flamework_Decorator") === undefined;
+		}),
+	);
 }
 
 function sanitizeConstructorBody(state: TransformState, statements: ts.Statement[]) {
