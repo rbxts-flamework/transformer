@@ -67,8 +67,8 @@ export class NodeMetadata {
 			}
 		}
 
-		// Interfaces are able to request metadata for their own property/methods.
 		if (ts.isClassElement(node) && node.name) {
+			// Interfaces are able to request metadata for their own property/methods.
 			const name = ts.getNameFromPropertyName(node.name);
 			if (name && ts.isClassLike(node.parent)) {
 				const implementNodes = ts.getEffectiveImplementsTypeNodes(node.parent);
@@ -81,6 +81,17 @@ export class NodeMetadata {
 								this.parse(state, declaration);
 							}
 						}
+					}
+				}
+			}
+		} else if (ts.isClassLike(node)) {
+			// Interfaces are able to request metadata for the object it is implemented on.
+			const implementNodes = ts.getEffectiveImplementsTypeNodes(node);
+			if (implementNodes) {
+				for (const implement of implementNodes) {
+					const symbol = state.getSymbol(implement.expression);
+					if (symbol && symbol.declarations?.[0]) {
+						this.parse(state, symbol.declarations[0]);
 					}
 				}
 			}
