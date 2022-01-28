@@ -262,7 +262,7 @@ export class TransformState {
 	}
 
 	getSymbol(node: ts.Node, followAlias = true): ts.Symbol | undefined {
-		if (f.is.classDeclaration(node) && f.is.identifier(node.name)) {
+		if (f.is.namedDeclaration(node)) {
 			return this.getSymbol(node.name);
 		}
 

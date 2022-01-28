@@ -202,8 +202,10 @@ function getDecoratorFields(
 ) {
 	if (!node.name) return [];
 
+	const symbol = state.getSymbol(node.name);
 	const propertyName = ts.getNameFromPropertyName(node.name);
 	assert(propertyName);
+	assert(symbol);
 	const importIdentifier = state.addFileImport(state.getSourceFile(node), "@flamework/core", "Reflect");
 	const decoratorStatements = new Array<ts.Statement>();
 
@@ -263,7 +265,7 @@ function getDecoratorFields(
 	}
 
 	const constraintTypes = metadata.getType("constraint");
-	const nodeType = state.typeChecker.getTypeAtLocation(node);
+	const nodeType = state.typeChecker.getTypeOfSymbolAtLocation(symbol, node);
 	for (const constraintType of constraintTypes ?? []) {
 		if (!state.typeChecker.isTypeAssignableTo(nodeType, constraintType)) {
 			Diagnostics.addDiagnostic(
