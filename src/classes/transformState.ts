@@ -20,6 +20,7 @@ import { CALL_MACROS } from "../transformations/macros/call/callMacros";
 import { isCleanBuildDirectory } from "../util/functions/isCleanBuildDirectory";
 import { parseCommandLine } from "../util/functions/parseCommandLine";
 import { createPathTranslator } from "../util/functions/createPathTranslator";
+import { arePathsEqual } from "../util/functions/arePathsEqual";
 
 const IGNORE_RBXTS_REGEX = /node_modules\/@rbxts\/(compiler-types|types)\/.*\.d\.ts$/;
 
@@ -107,7 +108,7 @@ export class TransformState {
 				const buildCandidate = BuildInfo.findCandidateUpper(path.dirname(file.fileName));
 				if (
 					buildCandidate &&
-					buildCandidate !== baseBuildInfo.buildInfoPath &&
+					!arePathsEqual(buildCandidate, baseBuildInfo.buildInfoPath) &&
 					!candidatesSet.has(buildCandidate)
 				) {
 					candidatesSet.add(buildCandidate);
