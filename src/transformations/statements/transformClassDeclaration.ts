@@ -139,11 +139,15 @@ function generateMethodMetadata(state: TransformState, metadata: NodeMetadata, m
 	const parameterGuards = new Array<ts.Expression>();
 
 	for (const parameter of method.parameters) {
-		if (!parameter.type) Diagnostics.error(parameter, `Expected parameter type`);
-
 		if (metadata.isRequested("flamework:parameters")) {
-			const id = getNodeUid(state, parameter.type);
-			parameters.push(id);
+			if (parameter.type) {
+				const id = getNodeUid(state, parameter.type);
+				parameters.push(id);
+			} else {
+				const type = state.typeChecker.getTypeAtLocation(parameter);
+				const id = getTypeUid(state, type, parameter);
+				parameters.push(id);
+			}
 		}
 
 		if (metadata.isRequested("flamework:parameter_names")) {
@@ -155,7 +159,7 @@ function generateMethodMetadata(state: TransformState, metadata: NodeMetadata, m
 		}
 
 		if (metadata.isRequested("flamework:parameter_guards")) {
-			const type = state.typeChecker.getTypeAtLocation(parameter.type);
+			const type = state.typeChecker.getTypeAtLocation(parameter);
 			const guard = buildGuardFromType(state, state.getSourceFile(method), type);
 			parameterGuards.push(guard);
 		}
