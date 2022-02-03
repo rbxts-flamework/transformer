@@ -16,6 +16,7 @@ const EXCLUDED_NAME_DIR = new Set(["src/", "lib/", "out/"]);
 export class SymbolProvider {
 	public fileSymbols = new Map<string, FileSymbol>();
 
+	public moddingFile!: FileSymbol;
 	public flameworkFile!: FileSymbol;
 	public componentsFile?: FileSymbol;
 	public networkingFile?: FileSymbol;
@@ -114,6 +115,7 @@ export class SymbolProvider {
 	}
 
 	private finalize() {
+		this.moddingFile = this.getFile("@flamework/core/modding");
 		this.flameworkFile = this.getFile("@flamework/core/flamework");
 		this.componentsFile = this.findFile("@flamework/components/index");
 		this.networkingFile = this.findFile("@flamework/networking/index");

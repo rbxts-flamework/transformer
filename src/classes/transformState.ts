@@ -21,6 +21,7 @@ import { isCleanBuildDirectory } from "../util/functions/isCleanBuildDirectory";
 import { parseCommandLine } from "../util/functions/parseCommandLine";
 import { createPathTranslator } from "../util/functions/createPathTranslator";
 import { arePathsEqual } from "../util/functions/arePathsEqual";
+import { GenericIdOptions } from "../util/functions/getGenericIdMap";
 
 const IGNORE_RBXTS_REGEX = /node_modules\/@rbxts\/(compiler-types|types)\/.*\.d\.ts$/;
 
@@ -86,6 +87,7 @@ export class TransformState {
 	public isGame: boolean;
 
 	public callMacros = new Map<ts.Symbol, CallMacro>();
+	public genericIdMap?: Map<ts.Symbol, GenericIdOptions>;
 	public inferExpressions = new Map<ts.SourceFile, ts.Identifier>();
 
 	private setupBuildInfo() {
