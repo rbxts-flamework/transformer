@@ -83,32 +83,23 @@ export function transformClassDeclaration(state: TransformState, node: ts.ClassD
 	return [updateClass(state, node, decorators), ...realFields];
 }
 
-/*
-flamework:return_type - ID of property type/method return type
-flamework:return_guard - guard for property type/method return type
-
-flamework:parameters - IDs of all method parameter types
-flamework:parameter_guards - guards for every method parameter type
-flamework:parameter_names - the name of every parameter (excluding bindings)
-*/
-
 function generateFieldMetadata(state: TransformState, metadata: NodeMetadata, field: ts.PropertyDeclaration) {
 	const fields = new Array<[string, f.ConvertableExpression]>();
 	const type = state.typeChecker.getTypeAtLocation(field);
 
-	if (metadata.isRequested("flamework:return_type")) {
+	if (metadata.isRequested("flamework:type")) {
 		if (!field.type) {
 			const id = getTypeUid(state, type, field.name ?? field);
-			fields.push(["flamework:return_type", id]);
+			fields.push(["flamework:type", id]);
 		} else {
 			const id = getNodeUid(state, field.type);
-			fields.push(["flamework:return_type", id]);
+			fields.push(["flamework:type", id]);
 		}
 	}
 
-	if (metadata.isRequested("flamework:return_guard")) {
+	if (metadata.isRequested("flamework:guard")) {
 		const guard = buildGuardFromType(state, state.getSourceFile(field), type);
-		fields.push(["flamework:return_guard", guard]);
+		fields.push(["flamework:guard", guard]);
 	}
 
 	return fields;
