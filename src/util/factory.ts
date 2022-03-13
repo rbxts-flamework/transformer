@@ -419,6 +419,10 @@ export namespace f {
 		return factory.createToken(kind);
 	}
 
+	export function modifier<T extends ts.ModifierSyntaxKind>(kind: T) {
+		return factory.createModifier(kind);
+	}
+
 	export namespace is {
 		/// Expressions
 

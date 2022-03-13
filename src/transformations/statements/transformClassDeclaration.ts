@@ -452,7 +452,13 @@ function updateClass(state: TransformState, node: ts.ClassDeclaration, decorator
 				);
 			}
 
-			const superOnStartStatement = shouldAddSuperOnStart(state, node)
+			const hasOnStart = shouldAddSuperOnStart(state, node);
+			const overrideModifier =
+				hasOnStart && !ts.findModifier(onStart, ts.SyntaxKind.OverrideKeyword)
+					? [ts.factory.createModifier(ts.SyntaxKind.OverrideKeyword)]
+					: [];
+
+			const superOnStartStatement = hasOnStart
 				? f.statement(f.call(f.field(f.superExpression(), "onStart")))
 				: f.statement();
 
@@ -509,6 +515,10 @@ function updateClass(state: TransformState, node: ts.ClassDeclaration, decorator
 					constructorBody,
 					...state.transformList(onStart.body.statements),
 				]),
+				undefined,
+				undefined,
+				undefined,
+				onStart.modifiers ? [...onStart.modifiers, ...overrideModifier] : overrideModifier,
 			);
 		}
 	} else {
