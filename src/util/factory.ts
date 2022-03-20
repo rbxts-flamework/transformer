@@ -413,6 +413,10 @@ export namespace f {
 		return factory.createTypeQueryNode(expression);
 	}
 
+	export function selfType() {
+		return factory.createThisTypeNode();
+	}
+
 	// Other
 
 	export function token<T extends ts.SyntaxKind>(kind: T) {

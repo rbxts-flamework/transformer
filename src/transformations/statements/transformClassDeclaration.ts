@@ -547,16 +547,7 @@ function sanitizeConstructorBody(state: TransformState, statements: ts.Statement
 				symbol.valueDeclaration.modifierFlagsCache & ts.ModifierFlags.Readonly &&
 				f.is.propertyDeclaration(symbol.valueDeclaration)
 			) {
-				const sanitizedThis = f.as(
-					f.self(),
-					f.typeLiteralType([
-						f.propertySignatureType(
-							symbol.valueDeclaration.name,
-							f.keywordType(ts.SyntaxKind.UnknownKeyword),
-						),
-					]),
-					true,
-				);
+				const sanitizedThis = f.as(f.self(), f.referenceType("Writable", [f.selfType()]), true);
 				return f.is.elementAccessExpression(node)
 					? f.elementAccessExpression(sanitizedThis, name as ts.Expression)
 					: f.propertyAccessExpression(sanitizedThis, name as ts.MemberName);
