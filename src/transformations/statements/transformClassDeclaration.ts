@@ -528,12 +528,35 @@ function updateClass(state: TransformState, node: ts.ClassDeclaration, decorator
 	return f.update.classDeclaration(
 		node,
 		node.name ? state.transformNode(node.name) : undefined,
-		members,
-		node.decorators?.filter((decorator) => {
-			const type = state.typeChecker.getTypeAtLocation(decorator.expression);
-			return type.getProperty("_flamework_Decorator") === undefined;
+		members.map((member) => {
+			// Strip Flamework decorators from members
+			if (member.decorators) {
+				const filteredDecorators = filterDecorators(state, member.decorators);
+				if (f.is.propertyDeclaration(member)) {
+					return f.update.propertyDeclaration(member, undefined, undefined, filteredDecorators);
+				} else if (f.is.methodDeclaration(member)) {
+					return f.update.methodDeclaration(
+						member,
+						undefined,
+						undefined,
+						undefined,
+						undefined,
+						filteredDecorators,
+					);
+				}
+			}
+
+			return member;
 		}),
+		node.decorators && filterDecorators(state, node.decorators),
 	);
+}
+
+function filterDecorators(state: TransformState, decorators: readonly ts.Decorator[]) {
+	return decorators.filter((decorator) => {
+		const type = state.typeChecker.getTypeAtLocation(decorator.expression);
+		return type.getProperty("_flamework_Decorator") === undefined;
+	});
 }
 
 function sanitizeConstructorBody(state: TransformState, statements: ts.Statement[]) {
