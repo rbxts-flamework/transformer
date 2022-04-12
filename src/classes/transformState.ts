@@ -22,6 +22,7 @@ import { parseCommandLine } from "../util/functions/parseCommandLine";
 import { createPathTranslator } from "../util/functions/createPathTranslator";
 import { arePathsEqual } from "../util/functions/arePathsEqual";
 import { GenericIdOptions } from "../util/functions/getGenericIdMap";
+import { NodeMetadata } from "./nodeMetadata";
 
 const IGNORE_RBXTS_REGEX = /node_modules\/@rbxts\/(compiler-types|types)\/.*\.d\.ts$/;
 
@@ -89,6 +90,7 @@ export class TransformState {
 	public callMacros = new Map<ts.Symbol, CallMacro>();
 	public genericIdMap?: Map<ts.Symbol, GenericIdOptions>;
 	public inferExpressions = new Map<ts.SourceFile, ts.Identifier>();
+	public isUserMacroCache = new Map<ts.Symbol, boolean>();
 
 	private setupBuildInfo() {
 		let baseBuildInfo = BuildInfo.fromDirectory(this.currentDirectory);
@@ -172,6 +174,24 @@ export class TransformState {
 		}
 
 		Cache.isInitialCompile = false;
+	}
+
+	isUserMacro(symbol: ts.Symbol) {
+		const cached = this.isUserMacroCache.get(symbol);
+		if (cached !== undefined) return cached;
+
+		if (symbol.declarations) {
+			for (const declaration of symbol.declarations) {
+				const metadata = new NodeMetadata(this, declaration);
+				if (metadata.isRequested("macro")) {
+					this.isUserMacroCache.set(symbol, true);
+					return true;
+				}
+			}
+		}
+
+		this.isUserMacroCache.set(symbol, false);
+		return false;
 	}
 
 	private areMacrosSetup = false;
