@@ -162,16 +162,30 @@ export function getUniversalTypeNodeGenerator(location: ts.Node) {
 		return signatures;
 	}
 
+	/**
+	 * Crawls parent symbols as getAccessibleSymbolChain does not
+	 */
+	function getAccessibleEntityName(symbol: ts.Symbol, typeChecker: ts.TypeChecker): ts.EntityName | undefined {
+		const symbolChain = typeChecker.getAccessibleSymbolChain(symbol, location, ts.SymbolFlags.All, false);
+		if (symbolChain) {
+			return getQualifiedName(symbolChain.map((v) => v.name));
+		}
+
+		if (symbol.parent) {
+			const parentChain = getAccessibleEntityName(symbol.parent, typeChecker);
+			if (parentChain) {
+				return f.qualifiedNameType(parentChain, symbol.name);
+			}
+		}
+	}
+
 	function getTypeReference(type: ts.Type, typeArguments?: ts.TypeNode[]) {
-		const symbolChain = type.checker.getAccessibleSymbolChain(type.symbol, location, ts.SymbolFlags.Type, false);
+		const accessibleEntityName = getAccessibleEntityName(type.symbol, type.checker);
 		const typeNode = type.checker.typeToTypeNode(type, location, FORMAT_FLAGS);
 		const isTypeOf = f.is.queryType(typeNode) || (f.is.importType(typeNode) && typeNode.isTypeOf);
 
-		if (symbolChain) {
-			const accessibleTypeNode = getQualifiedName(symbolChain.map((x) => x.name));
-			if (accessibleTypeNode) {
-				return isTypeOf ? f.queryType(accessibleTypeNode) : f.referenceType(accessibleTypeNode, typeArguments);
-			}
+		if (accessibleEntityName) {
+			return isTypeOf ? f.queryType(accessibleEntityName) : f.referenceType(accessibleEntityName, typeArguments);
 		} else {
 			const [filePath, ...segments] = type.checker.getFullyQualifiedName(type.symbol).split(".");
 			const accessibleTypeNode = getQualifiedName(segments);
