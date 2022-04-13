@@ -11,8 +11,6 @@ export function transformUserMacro<T extends ts.NewExpression | ts.CallExpressio
 	node: T,
 	signature: ts.Signature,
 ): T | undefined {
-	if (!signature.target) return state.transform(node);
-
 	const args = node.arguments ? [...node.arguments] : [];
 	const parameters = new Map<number, UserMacro>();
 	let highestParameterIndex = -1;
