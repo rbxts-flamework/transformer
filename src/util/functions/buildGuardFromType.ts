@@ -286,6 +286,11 @@ function simplifyUnion(type: ts.UnionType) {
 	const types = new Array<ts.Type>();
 
 	for (const type of currentTypes) {
+		// We do not need to generate symbol types as they don't exist in Lua.
+		if (type.flags & ts.TypeFlags.ESSymbolLike) {
+			continue;
+		}
+
 		if (!type.symbol || !type.symbol.parent) {
 			types.push(type);
 			continue;
