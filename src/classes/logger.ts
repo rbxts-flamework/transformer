@@ -5,9 +5,50 @@ interface Label {
 	start: number;
 }
 
+function getTime() {
+	const hrTime = process.hrtime();
+	return hrTime[0] * 1000 + hrTime[1] / 1e6;
+}
+
 export class Logger {
 	public static debug = true;
 	public static verbose = process.argv.includes("--verbose");
+
+	private static timerTotals = new Map<string, [number, number]>();
+	private static timers = new Array<[string, number]>();
+	private static timerHandle?: NodeJS.Timeout;
+
+	static timer(name: string) {
+		this.queueTimer();
+		this.timers.push([name, getTime()]);
+	}
+
+	static timerEnd() {
+		const timer = this.timers.pop();
+		if (!timer) return;
+
+		let currentValue = this.timerTotals.get(timer[0]);
+		if (!currentValue) this.timerTotals.set(timer[0], (currentValue = [0, 0]));
+
+		currentValue[0] += getTime() - timer[1];
+		currentValue[1]++;
+	}
+
+	static queueTimer() {
+		if (this.timerHandle !== undefined) {
+			this.timerHandle.refresh();
+			return;
+		}
+
+		this.timerHandle = setTimeout(() => {
+			const totals = this.timerTotals;
+			this.timerTotals = new Map();
+
+			for (const [name, [total, count]] of totals) {
+				console.log(`Timer '${name}' took ${total.toFixed(2)}ms (${count})`);
+			}
+		});
+	}
 
 	static write(message: string) {
 		process.stdout.write(message);
