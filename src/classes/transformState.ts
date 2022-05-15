@@ -66,6 +66,12 @@ export interface TransformerConfig {
 	 * 2. shortened ids
 	 */
 	obfuscation?: boolean;
+
+	/**
+	 * Determines the id generation mode.
+	 * Defaults to "full" and should only be configured in game projects.
+	 */
+	idGenerationMode?: "full" | "short" | "tiny" | "obfuscated";
 }
 
 export class TransformState {
@@ -158,6 +164,8 @@ export class TransformState {
 	) {
 		this.setupRojo();
 		this.setupBuildInfo();
+
+		config.idGenerationMode ??= config.obfuscation ? "obfuscated" : "full";
 
 		const { result: packageJson, directory } = getPackageJson(this.currentDirectory);
 		this.rootDirectory = directory;
@@ -298,11 +306,11 @@ export class TransformState {
 		}
 	}
 
-	hash(id: number) {
+	hash(id: number, noPrefix?: boolean) {
 		const hashPrefix = this.config.hashPrefix;
 		const salt = this.config.salt ?? this.buildInfo.getSalt();
 		const hashGenerator = new Hashids(salt, 2);
-		if (this.isGame && !hashPrefix) {
+		if ((this.isGame && !hashPrefix) || noPrefix) {
 			return `${hashGenerator.encode(id)}`;
 		} else {
 			// If the package name is namespaced, then it can be used in

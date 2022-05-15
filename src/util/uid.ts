@@ -20,6 +20,19 @@ function formatInternalid(state: TransformState, internalId: string, hashPrefix 
 	return hashPrefix ? `${hashPrefix}:${revisedPath}@${name}` : `${revisedPath}@${name}`;
 }
 
+/**
+ * Gets the short ID for a node and includes the hash for uniqueness.
+ */
+function getShortId(state: TransformState, node: ts.Declaration, hashPrefix = state.config.hashPrefix) {
+	const hash = state.hash(state.buildInfo.getLatestId(), true);
+	const fullName = getDeclarationName(node);
+	const fileName = path.parse(node.getSourceFile().fileName).name;
+	const luaFileName = fileName === "index" ? "init" : fileName;
+	const isShort = state.config.idGenerationMode === "short";
+	const shortId = `${isShort ? luaFileName + "@" : ""}${fullName}{${hash}}`;
+	return hashPrefix ? `${state.config.hashPrefix}:${shortId}` : shortId;
+}
+
 export function getInternalId(state: TransformState, node: ts.NamedDeclaration) {
 	const filePath = state.getSourceFile(node).fileName;
 	const fullName = getDeclarationName(node);
@@ -61,9 +74,15 @@ export function getDeclarationUid(state: TransformState, node: ts.NamedDeclarati
 		return internalId;
 	}
 
-	const newId = !state.config.obfuscation
-		? formatInternalid(state, internalId)
-		: state.hash(state.buildInfo.getLatestId());
+	let newId: string;
+	if (state.config.idGenerationMode === "obfuscated") {
+		newId = state.hash(state.buildInfo.getLatestId());
+	} else if (state.config.idGenerationMode === "short" || state.config.idGenerationMode === "tiny") {
+		newId = getShortId(state, node);
+	} else {
+		newId = formatInternalid(state, internalId);
+	}
+
 	state.buildInfo.addIdentifier(internalId, newId);
 	return newId;
 }
