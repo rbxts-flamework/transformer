@@ -45,7 +45,7 @@ export const NetworkingConnectMacro: CallMacro = {
 			if (customElement && !isUndefinedElement) {
 				generatedGuards[index] = customElement;
 			} else if (param.type) {
-				const type = state.typeChecker.getTypeAtLocation(param.type);
+				const type = state.typeChecker.getTypeAtLocation(param);
 				generatedGuards[index] = relocateDiagnostic(
 					param.type,
 					buildGuardFromType,
