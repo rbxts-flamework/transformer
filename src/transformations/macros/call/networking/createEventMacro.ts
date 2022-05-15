@@ -3,6 +3,7 @@ import { Diagnostics } from "../../../../classes/diagnostics";
 import { TransformState } from "../../../../classes/transformState";
 import { f } from "../../../../util/factory";
 import { buildGuardFromType } from "../../../../util/functions/buildGuardFromType";
+import { getNodeUid } from "../../../../util/uid";
 import { CallMacro } from "../../macro";
 
 export const NetworkingCreateEventMacro: CallMacro = {
@@ -77,7 +78,7 @@ export const NetworkingCreateEventMacro: CallMacro = {
 			node,
 			createNetworkingEvent,
 			[
-				state.getUid(parentDeclaration),
+				getNodeUid(state, parentDeclaration),
 				f.object(convertTypeToGuardArray(serverType, serverTypeArg, isFunction)),
 				f.object(convertTypeToGuardArray(clientType, clientTypeArg, isFunction)),
 				...obfuscateMiddleware(state, node.arguments),

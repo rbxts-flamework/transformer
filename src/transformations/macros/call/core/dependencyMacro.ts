@@ -1,5 +1,6 @@
 import { Diagnostics } from "../../../../classes/diagnostics";
 import { f } from "../../../../util/factory";
+import { getNodeUid } from "../../../../util/uid";
 import { CallMacro } from "../../macro";
 
 export const DependencyMacro: CallMacro = {
@@ -25,11 +26,8 @@ export const DependencyMacro: CallMacro = {
 			const symbol = state.getSymbol(firstArg);
 			if (!symbol) Diagnostics.error(firstArg, `Could not find symbol`);
 
-			const declaration = symbol.declarations?.[0];
-			if (!declaration) Diagnostics.error(firstArg, `Could not find declaration`);
-
 			return f.as(
-				f.call(f.field(importId, "resolveDependency"), [state.getUid(declaration)]),
+				f.call(f.field(importId, "resolveDependency"), [getNodeUid(state, firstArg)]),
 				f.referenceType(firstArg),
 			);
 		} else if (firstType && !firstArg) {
@@ -42,7 +40,7 @@ export const DependencyMacro: CallMacro = {
 			if (!declaration) Diagnostics.error(firstType, `Could not find declaration`);
 
 			return f.as(
-				f.call(f.field(importId, "resolveDependency"), [f.string(state.getUid(declaration))]),
+				f.call(f.field(importId, "resolveDependency"), [f.string(getNodeUid(state, declaration))]),
 				firstType,
 			);
 		} else {

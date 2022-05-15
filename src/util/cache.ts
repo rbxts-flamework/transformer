@@ -1,4 +1,5 @@
 import { RojoResolver } from "../classes/rojoResolver/rojoResolver";
+import { PackageJsonResult } from "./functions/getPackageJson";
 
 export interface Cache {
 	rojoSum?: string;
@@ -8,6 +9,7 @@ export interface Cache {
 	shouldView: Map<string, boolean>;
 	realPath: Map<string, string>;
 	moduleResolution: Map<string, string | false>;
+	pkgJsonCache: Map<string, PackageJsonResult>;
 }
 
 /**
@@ -18,4 +20,5 @@ export const Cache: Cache = {
 	shouldView: new Map(),
 	realPath: new Map(),
 	moduleResolution: new Map(),
+	pkgJsonCache: new Map(),
 };

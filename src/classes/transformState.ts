@@ -2,6 +2,7 @@ import ts from "typescript";
 import fs from "fs";
 import crypto from "crypto";
 import path from "path";
+import Hashids from "hashids";
 import { transformNode } from "../transformations/transformNode";
 import { PathTranslator } from "./rojoResolver/pathTranslator";
 import { RojoResolver } from "./rojoResolver/rojoResolver";
@@ -13,14 +14,15 @@ import { assert } from "./rojoResolver/util/assert";
 import { SymbolProvider } from "./symbolProvider";
 import { f } from "../util/factory";
 import { isPathDescendantOf } from "../util/functions/isPathDescendantOf";
-import { getDeclarationName } from "../util/functions/getDeclarationName";
-import Hashids from "hashids";
 import { ClassInfo } from "../types/classes";
 import { CallMacro } from "../transformations/macros/macro";
 import { CALL_MACROS } from "../transformations/macros/call/callMacros";
 import { isCleanBuildDirectory } from "../util/functions/isCleanBuildDirectory";
 import { parseCommandLine } from "../util/functions/parseCommandLine";
 import { createPathTranslator } from "../util/functions/createPathTranslator";
+import { arePathsEqual } from "../util/functions/arePathsEqual";
+import { GenericIdOptions } from "../util/functions/getGenericIdMap";
+import { NodeMetadata } from "./nodeMetadata";
 
 const IGNORE_RBXTS_REGEX = /node_modules\/@rbxts\/(compiler-types|types)\/.*\.d\.ts$/;
 
@@ -64,6 +66,12 @@ export interface TransformerConfig {
 	 * 2. shortened ids
 	 */
 	obfuscation?: boolean;
+
+	/**
+	 * Determines the id generation mode.
+	 * Defaults to "full" and should only be configured in game projects.
+	 */
+	idGenerationMode?: "full" | "short" | "tiny" | "obfuscated";
 }
 
 export class TransformState {
@@ -86,7 +94,9 @@ export class TransformState {
 	public isGame: boolean;
 
 	public callMacros = new Map<ts.Symbol, CallMacro>();
+	public genericIdMap?: Map<ts.Symbol, GenericIdOptions>;
 	public inferExpressions = new Map<ts.SourceFile, ts.Identifier>();
+	public isUserMacroCache = new Map<ts.Symbol, boolean>();
 
 	private setupBuildInfo() {
 		let baseBuildInfo = BuildInfo.fromDirectory(this.currentDirectory);
@@ -108,7 +118,7 @@ export class TransformState {
 				const buildCandidate = BuildInfo.findCandidateUpper(path.dirname(file.fileName));
 				if (
 					buildCandidate &&
-					buildCandidate !== baseBuildInfo.buildInfoPath &&
+					!arePathsEqual(buildCandidate, baseBuildInfo.buildInfoPath) &&
 					!candidatesSet.has(buildCandidate)
 				) {
 					candidatesSet.add(buildCandidate);
@@ -155,6 +165,8 @@ export class TransformState {
 		this.setupRojo();
 		this.setupBuildInfo();
 
+		config.idGenerationMode ??= config.obfuscation ? "obfuscated" : "full";
+
 		const { result: packageJson, directory } = getPackageJson(this.currentDirectory);
 		this.rootDirectory = directory;
 		assert(packageJson.name);
@@ -170,6 +182,24 @@ export class TransformState {
 		}
 
 		Cache.isInitialCompile = false;
+	}
+
+	isUserMacro(symbol: ts.Symbol) {
+		const cached = this.isUserMacroCache.get(symbol);
+		if (cached !== undefined) return cached;
+
+		if (symbol.declarations) {
+			for (const declaration of symbol.declarations) {
+				const metadata = new NodeMetadata(this, declaration);
+				if (metadata.isRequested("macro")) {
+					this.isUserMacroCache.set(symbol, true);
+					return true;
+				}
+			}
+		}
+
+		this.isUserMacroCache.set(symbol, false);
+		return false;
 	}
 
 	private areMacrosSetup = false;
@@ -263,7 +293,7 @@ export class TransformState {
 	}
 
 	getSymbol(node: ts.Node, followAlias = true): ts.Symbol | undefined {
-		if (f.is.classDeclaration(node) && f.is.identifier(node.name)) {
+		if (f.is.namedDeclaration(node)) {
 			return this.getSymbol(node.name);
 		}
 
@@ -276,11 +306,11 @@ export class TransformState {
 		}
 	}
 
-	hash(id: number) {
+	hash(id: number, noPrefix?: boolean) {
 		const hashPrefix = this.config.hashPrefix;
 		const salt = this.config.salt ?? this.buildInfo.getSalt();
 		const hashGenerator = new Hashids(salt, 2);
-		if (this.isGame && !hashPrefix) {
+		if ((this.isGame && !hashPrefix) || noPrefix) {
 			return `${hashGenerator.encode(id)}`;
 		} else {
 			// If the package name is namespaced, then it can be used in
@@ -288,62 +318,6 @@ export class TransformState {
 			// collisions with other packages or the game.
 			return `${hashPrefix ?? this.packageName}:${hashGenerator.encode(id)}`;
 		}
-	}
-
-	getInternalId(node: ts.NamedDeclaration, extra: true): [isPackage: boolean, internalId: string];
-	getInternalId(node: ts.NamedDeclaration): string;
-	getInternalId(node: ts.NamedDeclaration, extra = false) {
-		const filePath = this.getSourceFile(node).fileName;
-		const fullName = getDeclarationName(node);
-		const { directory, result } = getPackageJson(path.dirname(filePath));
-
-		if (isPathDescendantOf(filePath, this.pathTranslator.rootDir)) {
-			const outputPath = this.pathTranslator.getOutputPath(filePath).replace(/(\.lua)$/, "");
-			const relativePath = path.relative(this.currentDirectory, outputPath);
-			const internalId = `${result.name}:${relativePath.replace(/\\/g, "/")}@${fullName}`;
-			return extra ? [false, internalId] : internalId;
-		}
-
-		const relativePath = path.relative(directory, filePath.replace(/(\.d)?.ts$/, "").replace(/index$/, "init"));
-		const internalId = `${result.name}:${relativePath.replace(/\\/g, "/")}@${fullName}`;
-		return extra ? [true, internalId] : internalId;
-	}
-
-	/**
-	 * Format the internal id to be shorter, remove `out` part of path, and use hashPrefix.
-	 */
-	formatInternalid(internalId: string, hashPrefix = this.config.hashPrefix) {
-		const match = new RegExp(`^.*:(.*)@(.+)$`).exec(internalId);
-		if (!match) return internalId;
-
-		const [, path, name] = match;
-		const revisedPath = path.replace(/^(.*?)[\/\\]/, "");
-		return hashPrefix ? `${hashPrefix}:${revisedPath}@${name}` : `${revisedPath}@${name}`;
-	}
-
-	getUid(node: ts.NamedDeclaration) {
-		const [isPackage, internalId] = this.getInternalId(node, true);
-		const id = this.buildInfo.getIdentifierFromInternal(internalId);
-		if (id) return id;
-
-		// this is a package, and the package itself did not generate an id
-		// use the internal ID to prevent breakage between packages and games.
-		if (isPackage) {
-			const buildInfo = this.buildInfo.getBuildInfoFromFile(this.getSourceFile(node).fileName);
-			if (buildInfo) {
-				const prefix = buildInfo.getIdentifierPrefix();
-				if (prefix) {
-					return this.formatInternalid(internalId, prefix);
-				}
-			}
-			return internalId;
-		}
-
-		const newId = !this.config.obfuscation
-			? this.formatInternalid(internalId)
-			: this.hash(this.buildInfo.getLatestId());
-		this.buildInfo.addIdentifier(internalId, newId);
-		return newId;
 	}
 
 	obfuscateText(text: string, context?: string) {

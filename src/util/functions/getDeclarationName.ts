@@ -6,7 +6,8 @@ import { f } from "../factory";
  * @param node The node to retrieve the name of
  */
 export function getDeclarationName(node: ts.NamedDeclaration): string {
-	if (!f.is.identifier(node.name)) return "??";
+	if (!f.is.identifier(node.name)) return "$p:error";
+
 	let name = node.name.text;
 	for (let parent = node.parent; parent !== undefined; parent = parent.parent) {
 		if (ts.isNamedDeclaration(parent)) {

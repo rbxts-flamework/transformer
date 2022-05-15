@@ -4,16 +4,17 @@ import { TransformState } from "../../classes/transformState";
 import { ClassInfo } from "../../types/classes";
 import { DecoratorInfo } from "../../types/decorators";
 import { f } from "../../util/factory";
+import { getNodeUid, getSymbolUid } from "../../util/uid";
 
 export function viewClassDeclaration(state: TransformState, node: ts.ClassDeclaration) {
 	const { symbolProvider } = state;
 
 	const symbol = state.getSymbol(node);
-	const internalId = state.getUid(node);
+	const internalId = getNodeUid(state, node);
 
 	if (!node.name || !symbol) return;
 
-	let isExternal = false;
+	const isFlameworkClass = node.decorators !== undefined || node.members.some((v) => v.decorators);
 	const decorators: DecoratorInfo[] = [];
 	const flameworkDecorators = new Set([
 		symbolProvider.flameworkFile.get("Service"),
@@ -33,26 +34,22 @@ export function viewClassDeclaration(state: TransformState, node: ts.ClassDeclar
 			const name = decorator.expression.expression.text;
 			const isFlameworkDecorator = flameworkDecorators.has(symbol);
 
-			if (symbol !== symbolProvider.flameworkFile.get("External")) {
-				decorators.push({
-					type: "WithNodes",
-					declaration: symbol.declarations[0],
-					arguments: decorator.expression.arguments.map((x) => x),
-					internalId: state.getUid(symbol.declarations[0]),
-					isFlameworkDecorator,
-					name,
-					symbol,
-				});
-			} else {
-				isExternal = true;
-			}
+			decorators.push({
+				type: "WithNodes",
+				declaration: symbol.declarations[0],
+				arguments: decorator.expression.arguments.map((x) => x),
+				internalId: getSymbolUid(state, symbol, decorator.expression.expression),
+				isFlameworkDecorator,
+				name,
+				symbol,
+			});
 		}
 	}
-	if (decorators.length > 0) {
+
+	if (isFlameworkClass) {
 		const classInfo: ClassInfo = {
 			name: node.name.text,
 			internalId,
-			isExternal,
 			node,
 			decorators,
 			symbol,
@@ -66,7 +63,6 @@ export function viewClassDeclaration(state: TransformState, node: ts.ClassDeclar
 			state.buildInfo.addBuildClass({
 				filePath: relativePath,
 				internalId,
-				isExternal,
 				decorators: decorators.map((x) => ({
 					internalId: x.internalId,
 					isFlameworkDecorator: x.isFlameworkDecorator,
@@ -82,7 +78,6 @@ export function viewClassDeclaration(state: TransformState, node: ts.ClassDeclar
 				node,
 				symbol,
 				name: node.name.text,
-				isExternal: buildClass.isExternal,
 				decorators: buildClass.decorators.map((x) => ({
 					type: "Base",
 					internalId: x.internalId,
