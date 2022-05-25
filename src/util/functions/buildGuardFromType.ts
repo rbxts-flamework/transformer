@@ -63,6 +63,7 @@ const rbxTypes = [
 	"TweenInfo",
 	"PhysicalProperties",
 	"Vector3int16",
+	"Vector2int16",
 	"PathWaypoint",
 	"EnumItem",
 	"RBXScriptSignal",
