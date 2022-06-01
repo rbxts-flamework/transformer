@@ -2,16 +2,12 @@ import ts from "typescript";
 import { Diagnostics } from "../../../../classes/diagnostics";
 import { assert } from "../../../../classes/rojoResolver/util/assert";
 import { f } from "../../../../util/factory";
-import { GenericIdOptions, getGenericIdMap } from "../../../../util/functions/getGenericIdMap";
+import { getGenericIdMap } from "../../../../util/functions/getGenericIdMap";
 import { getNodeUid } from "../../../../util/uid";
 import { CallMacro } from "../../macro";
 
 function formatOrdinal(num: number) {
 	return ["1st", "2nd", "3rd"][num - 1] ?? `${num}th`;
-}
-
-function wrapNever(node: ts.Expression, genericInfo: GenericIdOptions) {
-	return genericInfo.never ? f.as(node, f.keywordType(ts.SyntaxKind.NeverKeyword)) : node;
 }
 
 export const GenericIdMacro: CallMacro = {
@@ -41,20 +37,8 @@ export const GenericIdMacro: CallMacro = {
 				parameters.push(node.arguments[i] ? state.transformNode(node.arguments[i]) : f.nil());
 			}
 
-			parameters.push(wrapNever(f.string(id), genericInfo));
+			parameters.push(f.string(id));
 			return f.update.call(node, state.transformNode(node.expression), parameters);
-		}
-
-		if (genericInfo.convertArgument) {
-			const symbol = state.getSymbol(argument);
-
-			if (symbol && state.classes.has(symbol)) {
-				const id = getNodeUid(state, argument);
-				const parameters = [...node.arguments];
-				parameters[genericInfo.index] = wrapNever(f.string(id), genericInfo);
-
-				return f.update.call(node, state.transformNode(node.expression), parameters);
-			}
 		}
 
 		return state.transform(node);

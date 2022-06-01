@@ -10,10 +10,6 @@ interface SymbolGetter {
 export type GenericIdOptions = {
 	index: number;
 	optional?: boolean;
-
-	// These mimick the behavior of older macros but should probably be removed in the future.
-	convertArgument?: boolean;
-	never?: boolean;
 };
 
 const MODDING_SYMBOLS: SymbolRecord = {
@@ -30,11 +26,11 @@ const TESTING_SYMBOLS: SymbolRecord = {
 };
 
 const COMPONENTS_SYMBOLS: SymbolRecord = {
-	getComponent: { index: 1, convertArgument: true, never: true },
-	getComponents: { index: 1, convertArgument: true, never: true },
-	addComponent: { index: 1, convertArgument: true, never: true },
-	removeComponent: { index: 1, convertArgument: true, never: true },
-	getAllComponents: { index: 0, convertArgument: true, never: true },
+	getComponent: { index: 1 },
+	getComponents: { index: 1 },
+	addComponent: { index: 1 },
+	removeComponent: { index: 1 },
+	getAllComponents: { index: 0 },
 };
 
 export function getGenericIdMap(state: TransformState) {
