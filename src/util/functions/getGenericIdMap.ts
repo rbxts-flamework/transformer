@@ -31,6 +31,7 @@ const TESTING_SYMBOLS: SymbolRecord = {
 
 const COMPONENTS_SYMBOLS: SymbolRecord = {
 	getComponent: { index: 1, convertArgument: true, never: true },
+	getComponents: { index: 1, convertArgument: true, never: true },
 	addComponent: { index: 1, convertArgument: true, never: true },
 	removeComponent: { index: 1, convertArgument: true, never: true },
 	getAllComponents: { index: 0, convertArgument: true, never: true },
