@@ -6,7 +6,7 @@ import { f } from "./factory";
 import { getDeclarationName } from "./functions/getDeclarationName";
 import { getPackageJson } from "./functions/getPackageJson";
 import { isDefinedType } from "./functions/isDefinedType";
-import { isPathDescendantOf } from "./functions/isPathDescendantOf";
+import { isPathDescendantOfAny } from "./functions/isPathDescendantOf";
 
 /**
  * Format the internal id to be shorter, remove `out` part of path, and use hashPrefix.
@@ -38,7 +38,7 @@ export function getInternalId(state: TransformState, node: ts.NamedDeclaration) 
 	const fullName = getDeclarationName(node);
 	const { directory, result } = getPackageJson(path.dirname(filePath));
 
-	if (isPathDescendantOf(filePath, state.pathTranslator.rootDir)) {
+	if (isPathDescendantOfAny(filePath, state.rootDirs)) {
 		const outputPath = state.pathTranslator.getOutputPath(filePath).replace(/(\.lua)$/, "");
 		const relativePath = path.relative(state.currentDirectory, outputPath);
 		const internalId = `${result.name}:${relativePath.replace(/\\/g, "/")}@${fullName}`;

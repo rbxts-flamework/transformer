@@ -80,6 +80,7 @@ export class TransformState {
 	public options = this.program.getCompilerOptions();
 	public srcDir = this.options.rootDir ?? this.currentDirectory;
 	public outDir = this.options.outDir ?? this.currentDirectory;
+	public rootDirs = this.options.rootDirs ? this.options.rootDirs : [this.srcDir];
 	public typeChecker = this.program.getTypeChecker();
 
 	public symbolProvider = new SymbolProvider(this);

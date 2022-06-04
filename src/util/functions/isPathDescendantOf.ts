@@ -8,3 +8,12 @@ import path from "path";
 export function isPathDescendantOf(filePath: string, dirPath: string) {
 	return dirPath === filePath || !path.relative(dirPath, filePath).startsWith("..");
 }
+
+/**
+ * Checks if the `filePath` is a descendant of any of the specified `dirPaths` paths.
+ * @param filePath A path to a file.
+ * @param dirPaths The directories to check.
+ */
+export function isPathDescendantOfAny(filePath: string, dirPaths: string[]) {
+	return dirPaths.some((dirPath) => isPathDescendantOf(filePath, dirPath));
+}
