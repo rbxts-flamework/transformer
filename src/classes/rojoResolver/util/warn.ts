@@ -3,5 +3,5 @@
  * @param message
  */
 export function warn(message: string) {
-	console.log(`Compiler Warning: ${message}`);
+	console.log(`Flamework RojoResolver Warning: ${message}`);
 }
