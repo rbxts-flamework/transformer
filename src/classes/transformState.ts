@@ -144,7 +144,7 @@ export class TransformState {
 		this.pathTranslator = createPathTranslator(this.program);
 
 		const rojoArgvIndex = process.argv.findIndex((v) => v === "--rojo");
-		const rojoArg = process.argv[rojoArgvIndex + 1];
+		const rojoArg = rojoArgvIndex !== -1 ? process.argv[rojoArgvIndex + 1] : undefined;
 
 		let rojoConfig: string | undefined;
 		if (rojoArg && rojoArg !== "") {
