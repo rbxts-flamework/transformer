@@ -143,15 +143,24 @@ export class TransformState {
 	private setupRojo() {
 		this.pathTranslator = createPathTranslator(this.program);
 
-		const rojoConfig = RojoResolver.findRojoConfigFilePath(this.currentDirectory);
-		if (rojoConfig.path !== undefined) {
-			const rojoContents = fs.readFileSync(rojoConfig.path, { encoding: "ascii" });
+		const rojoArgvIndex = process.argv.findIndex((v) => v === "--rojo");
+		const rojoArg = process.argv[rojoArgvIndex + 1];
+
+		let rojoConfig: string | undefined;
+		if (rojoArg && rojoArg !== "") {
+			rojoConfig = path.resolve(rojoArg);
+		} else {
+			rojoConfig = RojoResolver.findRojoConfigFilePath(this.currentDirectory).path;
+		}
+
+		if (rojoConfig !== undefined) {
+			const rojoContents = fs.readFileSync(rojoConfig, { encoding: "ascii" });
 			const sum = crypto.createHash("md5").update(rojoContents).digest("hex");
 
 			if (sum === Cache.rojoSum) {
 				this.rojoResolver = Cache.rojoResolver;
 			} else {
-				this.rojoResolver = RojoResolver.fromPath(rojoConfig.path);
+				this.rojoResolver = RojoResolver.fromPath(rojoConfig);
 				Cache.rojoSum = sum;
 				Cache.rojoResolver = this.rojoResolver;
 			}
