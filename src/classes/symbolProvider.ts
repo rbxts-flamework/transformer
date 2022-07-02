@@ -2,7 +2,6 @@ import ts from "typescript";
 import path from "path";
 import fs from "fs";
 import { isPathDescendantOf } from "../util/functions/isPathDescendantOf";
-import { assert } from "./rojoResolver/util/assert";
 import { TransformState } from "./transformState";
 import { getPackageJson } from "../util/functions/getPackageJson";
 import { Logger } from "./logger";
@@ -10,6 +9,7 @@ import { f } from "../util/factory";
 import chalk from "chalk";
 import { Cache } from "../util/cache";
 import { emitTypescriptMismatch } from "../util/functions/emitTypescriptMismatch";
+import { assert } from "../util/functions/assert";
 
 const EXCLUDED_NAME_DIR = new Set(["src/", "lib/", "out/"]);
 

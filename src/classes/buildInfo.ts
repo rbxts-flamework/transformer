@@ -4,7 +4,7 @@ import fs from "fs";
 import ajv, { ValidateFunction } from "ajv";
 import crypto from "crypto";
 import { v4 as uuid } from "uuid";
-import { PACKAGE_ROOT, PKG_VERSION } from "./rojoResolver/constants";
+import { PACKAGE_ROOT, PKG_VERSION } from "./pathTranslator/constants";
 import { isPathDescendantOf } from "../util/functions/isPathDescendantOf";
 
 interface BuildDecorator {

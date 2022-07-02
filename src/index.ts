@@ -7,7 +7,7 @@ import { Logger } from "./classes/logger";
 import { viewFile } from "./information/viewFile";
 import { f } from "./util/factory";
 import chalk from "chalk";
-import { PKG_VERSION } from "./classes/rojoResolver/constants";
+import { PKG_VERSION } from "./classes/pathTranslator/constants";
 import { emitTypescriptMismatch } from "./util/functions/emitTypescriptMismatch";
 
 export default function (program: ts.Program, config?: TransformerConfig) {

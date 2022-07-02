@@ -1,4 +1,4 @@
-import { RojoResolver } from "../classes/rojoResolver/rojoResolver";
+import { RojoResolver } from "@roblox-ts/rojo-resolver";
 import { PackageJsonResult } from "./functions/getPackageJson";
 
 export interface Cache {

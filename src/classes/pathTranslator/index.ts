@@ -1,6 +1,6 @@
 import path from "path";
 import { D_EXT, INDEX_NAME, INIT_NAME, LUA_EXT, TSX_EXT, TS_EXT } from "./constants";
-import { assert } from "./util/assert";
+import { assert } from "../../util/functions/assert";
 
 export class PathInfo {
 	private constructor(public dirName: string, public fileName: string, public exts: Array<string>) {}

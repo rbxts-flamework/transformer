@@ -4,13 +4,10 @@ import crypto from "crypto";
 import path from "path";
 import Hashids from "hashids";
 import { transformNode } from "../transformations/transformNode";
-import { PathTranslator } from "./rojoResolver/pathTranslator";
-import { RojoResolver } from "./rojoResolver/rojoResolver";
 import { Cache } from "../util/cache";
 import { getPackageJson } from "../util/functions/getPackageJson";
 import { BuildInfo } from "./buildInfo";
 import { Logger } from "./logger";
-import { assert } from "./rojoResolver/util/assert";
 import { SymbolProvider } from "./symbolProvider";
 import { f } from "../util/factory";
 import { isPathDescendantOf } from "../util/functions/isPathDescendantOf";
@@ -23,6 +20,9 @@ import { createPathTranslator } from "../util/functions/createPathTranslator";
 import { arePathsEqual } from "../util/functions/arePathsEqual";
 import { GenericIdOptions } from "../util/functions/getGenericIdMap";
 import { NodeMetadata } from "./nodeMetadata";
+import { RojoResolver } from "@roblox-ts/rojo-resolver";
+import { PathTranslator } from "./pathTranslator";
+import { assert } from "../util/functions/assert";
 
 const IGNORE_RBXTS_REGEX = /node_modules\/@rbxts\/(compiler-types|types)\/.*\.d\.ts$/;
 
@@ -144,14 +144,14 @@ export class TransformState {
 		this.pathTranslator = createPathTranslator(this.program);
 
 		const rojoConfig = RojoResolver.findRojoConfigFilePath(this.currentDirectory);
-		if (rojoConfig) {
-			const rojoContents = fs.readFileSync(rojoConfig, { encoding: "ascii" });
+		if (rojoConfig.path !== undefined) {
+			const rojoContents = fs.readFileSync(rojoConfig.path, { encoding: "ascii" });
 			const sum = crypto.createHash("md5").update(rojoContents).digest("hex");
 
 			if (sum === Cache.rojoSum) {
 				this.rojoResolver = Cache.rojoResolver;
 			} else {
-				this.rojoResolver = RojoResolver.fromPath(rojoConfig);
+				this.rojoResolver = RojoResolver.fromPath(rojoConfig.path);
 				Cache.rojoSum = sum;
 				Cache.rojoResolver = this.rojoResolver;
 			}

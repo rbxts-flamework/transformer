@@ -10,7 +10,7 @@ export function assert(value: unknown, message?: string): asserts value {
 		throw new Error(
 			`Assertion Failed! ${message ?? ""}` +
 				"\nPlease submit a bug report here:" +
-				"\nhttps://github.com/FireTS/rbxts-flamework/issues",
+				"\nhttps://github.com/rbxts-flamework/core/issues",
 		);
 	}
 }

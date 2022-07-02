@@ -1,6 +1,6 @@
 import ts from "typescript";
 import { Diagnostics } from "../../classes/diagnostics";
-import { assert } from "../../classes/rojoResolver/util/assert";
+import { assert } from "./assert";
 import { getDeclarationOfType } from "./getDeclarationOfType";
 
 export function getInstanceTypeFromType(file: ts.SourceFile, type: ts.Type) {

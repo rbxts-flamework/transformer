@@ -1,7 +1,7 @@
 import ts from "typescript";
 import { Diagnostics } from "../../../../classes/diagnostics";
-import { assert } from "../../../../classes/rojoResolver/util/assert";
 import { f } from "../../../../util/factory";
+import { assert } from "../../../../util/functions/assert";
 import { getGenericIdMap } from "../../../../util/functions/getGenericIdMap";
 import { getNodeUid } from "../../../../util/uid";
 import { CallMacro } from "../../macro";
