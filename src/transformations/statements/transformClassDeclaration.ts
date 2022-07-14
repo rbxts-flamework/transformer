@@ -219,7 +219,7 @@ function getDecoratorFields(
 						f.call(f.field(importIdentifier, "decorate"), [
 							declaration.name!,
 							getSymbolUid(state, symbol, identifier),
-							f.as(identifier, f.keywordType(ts.SyntaxKind.NeverKeyword)),
+							identifier,
 							[...args],
 							...propertyArgs,
 						]),
