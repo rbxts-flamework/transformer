@@ -234,12 +234,36 @@ export function buildGuardFromType(state: TransformState, file: ts.SourceFile, t
 	}
 
 	const isObject = isObjectType(type);
-	if (isObject && type.getApparentProperties().length === 0) {
+	const indexInfos = type.checker.getIndexInfosOfType(type);
+	if (isObject && type.getApparentProperties().length === 0 && indexInfos.length === 0) {
 		return f.field(tId, "any");
 	}
 
 	if (isObject || type.isClassOrInterface()) {
-		return f.call(f.field(tId, "interface"), [f.object(buildGuardsFromType(state, file, type, true))]);
+		const guards = [];
+
+		if (type.getApparentProperties().length > 0) {
+			guards.push(f.call(f.field(tId, "interface"), [f.object(buildGuardsFromType(state, file, type, true))]));
+		}
+
+		const indexInfo = indexInfos[0];
+		if (indexInfo) {
+			if (indexInfos.length > 1) {
+				Diagnostics.error(
+					diagnosticsLocation,
+					"Flamework cannot generate types with multiple index signatures.",
+				);
+			}
+
+			guards.push(
+				f.call(f.field(tId, "map"), [
+					buildGuardFromType(state, file, indexInfo.keyType),
+					buildGuardFromType(state, file, indexInfo.type),
+				]),
+			);
+		}
+
+		return guards.length > 1 ? f.call(f.field(tId, "intersection"), guards) : guards[0];
 	}
 
 	Diagnostics.error(diagnosticsLocation, `Invalid type: ${typeChecker.typeToString(type)}`);
@@ -266,6 +290,13 @@ function buildUnionGuard(state: TransformState, file: ts.SourceFile, type: ts.Un
 
 function buildIntersectionGuard(state: TransformState, file: ts.SourceFile, type: ts.IntersectionType) {
 	const tId = state.addFileImport(file, "@rbxts/t", "t");
+
+	if (type.checker.getIndexInfosOfType(type).length > 1) {
+		Diagnostics.error(
+			getDeclarationOfType(type) ?? file,
+			"Flamework cannot generate intersections with multiple index signatures.",
+		);
+	}
 
 	const guards = type.types.map((x) => buildGuardFromType(state, file, x));
 	return f.call(f.field(tId, "intersection"), guards);
