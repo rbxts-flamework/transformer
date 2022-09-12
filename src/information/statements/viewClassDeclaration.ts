@@ -14,7 +14,9 @@ export function viewClassDeclaration(state: TransformState, node: ts.ClassDeclar
 
 	if (!node.name || !symbol) return;
 
-	const isFlameworkClass = node.decorators !== undefined || node.members.some((v) => v.decorators);
+	const nodeDecorators = ts.canHaveDecorators(node) ? ts.getDecorators(node) : undefined;
+	const isFlameworkClass =
+		nodeDecorators !== undefined || node.members.some((v) => ts.canHaveDecorators(v) && ts.getDecorators(v));
 	const decorators: DecoratorInfo[] = [];
 	const flameworkDecorators = new Set([
 		symbolProvider.flameworkFile.get("Service"),
@@ -22,8 +24,8 @@ export function viewClassDeclaration(state: TransformState, node: ts.ClassDeclar
 		symbolProvider.componentsFile?.get("Component"),
 	]);
 
-	if (node.decorators) {
-		for (const decorator of node.decorators) {
+	if (nodeDecorators) {
+		for (const decorator of nodeDecorators) {
 			if (!f.is.call(decorator.expression)) continue;
 
 			const symbol = state.getSymbol(decorator.expression.expression);

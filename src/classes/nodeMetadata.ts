@@ -55,8 +55,9 @@ export class NodeMetadata {
 			}
 		}
 
-		if (node.decorators) {
-			for (const decorator of node.decorators) {
+		const decorators = ts.canHaveDecorators(node) ? ts.getDecorators(node) : undefined;
+		if (decorators) {
+			for (const decorator of decorators) {
 				const expression = decorator.expression;
 				const symbol = state.getSymbol(f.is.call(expression) ? expression.expression : expression);
 				if (!symbol || !symbol.declarations) continue;
