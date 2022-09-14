@@ -199,8 +199,9 @@ function getDecoratorFields(
 		);
 	}
 
-	if (node.decorators) {
-		for (const decorator of node.decorators) {
+	const decorators = ts.canHaveDecorators(node) ? ts.getDecorators(node) : undefined;
+	if (decorators) {
+		for (const decorator of decorators) {
 			const expr = decorator.expression;
 			const type = state.typeChecker.getTypeAtLocation(expr);
 			if (type.getProperty("_flamework_Decorator")) {
@@ -289,6 +290,7 @@ function getAssignabilityDiagnostics(
 }
 
 function updateClass(state: TransformState, node: ts.ClassDeclaration) {
+	const modifiers = ts.canHaveModifiers(node) ? ts.getModifiers(node) : undefined;
 	return f.update.classDeclaration(
 		node,
 		node.name ? state.transformNode(node.name) : undefined,
@@ -296,8 +298,9 @@ function updateClass(state: TransformState, node: ts.ClassDeclaration) {
 			.map((node) => state.transformNode(node))
 			.map((member) => {
 				// Strip Flamework decorators from members
-				if (member.decorators) {
-					const filteredDecorators = transformDecorators(state, member.decorators);
+				const memberDecorators = ts.canHaveDecorators(member) ? ts.getDecorators(member) : undefined;
+				if (memberDecorators) {
+					const filteredDecorators = transformModifiers(state, memberDecorators);
 					if (f.is.propertyDeclaration(member)) {
 						return f.update.propertyDeclaration(member, undefined, undefined, filteredDecorators);
 					} else if (f.is.methodDeclaration(member)) {
@@ -314,14 +317,17 @@ function updateClass(state: TransformState, node: ts.ClassDeclaration) {
 
 				return member;
 			}),
-		node.decorators && transformDecorators(state, node.decorators),
+		node.heritageClauses,
+		node.typeParameters,
+		modifiers && transformModifiers(state, modifiers),
 	);
 }
 
-function transformDecorators(state: TransformState, decorators: readonly ts.Decorator[]) {
-	return decorators
-		.filter((decorator) => {
-			const type = state.typeChecker.getTypeAtLocation(decorator.expression);
+function transformModifiers(state: TransformState, modifiers: readonly ts.ModifierLike[]) {
+	return modifiers
+		.filter((modifier) => {
+			if (!ts.isDecorator(modifier)) return true;
+			const type = state.typeChecker.getTypeAtLocation(modifier.expression);
 			return type.getProperty("_flamework_Decorator") === undefined;
 		})
 		.map((decorator) => state.transform(decorator));

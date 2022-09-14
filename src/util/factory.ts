@@ -22,7 +22,7 @@ import ts from "typescript";
 export namespace f {
 	let factory = ts.factory;
 
-	type NodeArray<T extends ts.Node> = Array<T> | ts.NodeArray<T>;
+	type NodeArray<T extends ts.Node> = ReadonlyArray<T> | ts.NodeArray<T>;
 	type ONodeArray<T extends ts.Node> = NodeArray<T> | undefined;
 	export type ConvertableExpression = string | number | ts.Expression | Array<ConvertableExpression> | boolean;
 	export function toExpression(
@@ -214,7 +214,6 @@ export namespace f {
 		return factory.createMethodDeclaration(
 			undefined,
 			undefined,
-			undefined,
 			name,
 			isOptional ? token(ts.SyntaxKind.QuestionToken) : undefined,
 			typeParameters,
@@ -239,7 +238,6 @@ export namespace f {
 	) {
 		return factory.createParameterDeclaration(
 			undefined,
-			undefined,
 			isSpread ? factory.createToken(ts.SyntaxKind.DotDotDotToken) : undefined,
 			name,
 			isOptional ? factory.createToken(ts.SyntaxKind.QuestionToken) : undefined,
@@ -253,7 +251,7 @@ export namespace f {
 		constraint?: ts.TypeNode,
 		defaultType?: ts.TypeNode,
 	) {
-		return factory.createTypeParameterDeclaration(name, constraint, defaultType);
+		return factory.createTypeParameterDeclaration(undefined, name, constraint, defaultType);
 	}
 
 	export function propertyAssignmentDeclaration(name: ts.PropertyName | string, value: ConvertableExpression) {
@@ -266,7 +264,7 @@ export namespace f {
 		type?: ts.TypeNode,
 		tokenType?: ts.QuestionToken | ts.ExclamationToken,
 	) {
-		return factory.createPropertyDeclaration(undefined, undefined, name, tokenType, type, initializer);
+		return factory.createPropertyDeclaration(undefined, name, tokenType, type, initializer);
 	}
 
 	export function importDeclaration(
@@ -276,7 +274,6 @@ export namespace f {
 		typeOnly = false,
 	) {
 		return factory.createImportDeclaration(
-			undefined,
 			undefined,
 			factory.createImportClause(
 				typeOnly,
@@ -308,16 +305,7 @@ export namespace f {
 		type?: ts.TypeNode,
 		typeParams?: ts.TypeParameterDeclaration[],
 	) {
-		return factory.createFunctionDeclaration(
-			undefined,
-			undefined,
-			undefined,
-			name,
-			typeParams,
-			parameters,
-			type,
-			body,
-		);
+		return factory.createFunctionDeclaration(undefined, undefined, name, typeParams, parameters, type, body);
 	}
 
 	export function typeAliasDeclaration(
@@ -325,7 +313,7 @@ export namespace f {
 		type: ts.TypeNode,
 		typeParameters?: ts.TypeParameterDeclaration[],
 	) {
-		return factory.createTypeAliasDeclaration(undefined, undefined, name, typeParameters, type);
+		return factory.createTypeAliasDeclaration(undefined, name, typeParameters, type);
 	}
 
 	/// Type Nodes
@@ -354,6 +342,7 @@ export namespace f {
 	) {
 		return factory.createImportTypeNode(
 			typeof argument === "string" ? literalType(string(argument)) : argument,
+			undefined,
 			qualifier,
 			typeArguments,
 			isTypeOf,
@@ -377,7 +366,7 @@ export namespace f {
 	}
 
 	export function indexSignatureType(indexType: ts.TypeNode, valueType: ts.TypeNode) {
-		return factory.createIndexSignature(undefined, undefined, [parameterDeclaration("key", indexType)], valueType);
+		return factory.createIndexSignature(undefined, [parameterDeclaration("key", indexType)], valueType);
 	}
 
 	export function callSignatureType(
@@ -624,20 +613,11 @@ export namespace f {
 			node: ts.ClassDeclaration,
 			name = node.name,
 			members: NodeArray<ts.ClassElement> = node.members,
-			decorators?: Array<ts.Decorator>,
 			heritageClauses = node.heritageClauses,
 			typeParameters = node.typeParameters,
-			modifiers = node.modifiers,
+			modifiers: ONodeArray<ts.ModifierLike> = ts.getModifiers(node),
 		) {
-			return factory.updateClassDeclaration(
-				node,
-				decorators,
-				modifiers,
-				name,
-				typeParameters,
-				heritageClauses,
-				members,
-			);
+			return factory.updateClassDeclaration(node, modifiers, name, typeParameters, heritageClauses, members);
 		}
 
 		export function constructor(
@@ -645,7 +625,7 @@ export namespace f {
 			parameters: NodeArray<ts.ParameterDeclaration>,
 			body: ts.Block,
 		) {
-			return factory.updateConstructorDeclaration(node, undefined, undefined, parameters, body);
+			return factory.updateConstructorDeclaration(node, undefined, parameters, body);
 		}
 
 		export function parameterDeclaration(
@@ -653,13 +633,12 @@ export namespace f {
 			name = node.name,
 			type = node.type,
 			initializer = node.initializer,
-			modifiers: ONodeArray<ts.Modifier> = node.modifiers,
+			modifiers: ONodeArray<ts.ModifierLike> = ts.getModifiers(node),
 			isRest = node.dotDotDotToken !== undefined,
 			isOptional = node.questionToken !== undefined,
 		) {
 			return factory.updateParameterDeclaration(
 				node,
-				undefined,
 				modifiers?.length ? modifiers : undefined,
 				isRest ? token(ts.SyntaxKind.DotDotDotToken) : undefined,
 				name,
@@ -675,14 +654,12 @@ export namespace f {
 			body = node.body,
 			parameters: ONodeArray<ts.ParameterDeclaration> = node.parameters,
 			typeParameters: ONodeArray<ts.TypeParameterDeclaration> = node.typeParameters,
-			decorators: ONodeArray<ts.Decorator> = node.decorators,
-			modifiers: ONodeArray<ts.Modifier> = node.modifiers,
+			modifiers: ONodeArray<ts.ModifierLike> = ts.getModifiers(node),
 			isOptional = node.asteriskToken !== undefined,
 			type = node.type,
 		) {
 			return factory.updateMethodDeclaration(
 				node,
-				decorators?.length === 0 ? undefined : decorators,
 				modifiers?.length === 0 ? undefined : modifiers,
 				undefined,
 				typeof name === "string" ? identifier(name) : name,
@@ -698,8 +675,7 @@ export namespace f {
 			node: ts.PropertyDeclaration,
 			initializer: ConvertableExpression | null | undefined = node.initializer,
 			name = node.name,
-			decorators: ONodeArray<ts.Decorator> = node.decorators,
-			modifiers: ONodeArray<ts.Modifier> = node.modifiers,
+			modifiers: ONodeArray<ts.ModifierLike> = ts.getModifiers(node),
 			tokenType: "?" | "!" | undefined = node.questionToken ? "?" : node.exclamationToken ? "!" : undefined,
 			type = node.type,
 		) {
@@ -711,7 +687,6 @@ export namespace f {
 					: undefined;
 			return factory.updatePropertyDeclaration(
 				node,
-				decorators?.length === 0 ? undefined : decorators,
 				modifiers?.length === 0 ? undefined : modifiers,
 				name,
 				syntaxToken,
