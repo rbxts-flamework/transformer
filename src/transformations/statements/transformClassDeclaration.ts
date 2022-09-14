@@ -298,9 +298,9 @@ function updateClass(state: TransformState, node: ts.ClassDeclaration) {
 			.map((node) => state.transformNode(node))
 			.map((member) => {
 				// Strip Flamework decorators from members
-				const memeberDecorators = ts.canHaveDecorators(member) ? ts.getDecorators(member) : undefined;
-				if (memeberDecorators) {
-					const filteredDecorators = transformModifiers(state, memeberDecorators);
+				const memberDecorators = ts.canHaveDecorators(member) ? ts.getDecorators(member) : undefined;
+				if (memberDecorators) {
+					const filteredDecorators = transformModifiers(state, memberDecorators);
 					if (f.is.propertyDeclaration(member)) {
 						return f.update.propertyDeclaration(member, undefined, undefined, filteredDecorators);
 					} else if (f.is.methodDeclaration(member)) {
