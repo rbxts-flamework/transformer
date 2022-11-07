@@ -44,8 +44,17 @@ export const NetworkingCreateEventMacro: CallMacro = {
 				if (!callSignature) Diagnostics.error(propSource, `This type does not have a call signature`);
 
 				const guards = new Array<ts.Expression>();
+				let restGuard: ts.Expression = f.nil();
 				for (const param of callSignature.parameters) {
 					const paramType = state.typeChecker.getTypeOfSymbolAtLocation(param, node);
+					const parameterDeclaration = param.valueDeclaration;
+					if (parameterDeclaration && ts.isRestParameter(parameterDeclaration as ts.ParameterDeclaration)) {
+						const elementType = state.typeChecker.getElementTypeOfArrayType(paramType);
+						if (elementType) {
+							restGuard = buildGuardFromType(state, file, elementType);
+						}
+						break;
+					}
 					guards.push(buildGuardFromType(state, file, paramType));
 				}
 
@@ -53,8 +62,8 @@ export const NetworkingCreateEventMacro: CallMacro = {
 					f.propertyAssignmentDeclaration(
 						state.obfuscateText(prop.name, "remotes"),
 						generateReturn
-							? [guards, buildGuardFromType(state, file, callSignature.getReturnType())]
-							: guards,
+							? [[guards, restGuard], buildGuardFromType(state, file, callSignature.getReturnType())]
+							: [guards, restGuard],
 					),
 				);
 			}
