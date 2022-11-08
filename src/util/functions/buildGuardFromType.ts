@@ -266,6 +266,26 @@ export function buildGuardFromType(state: TransformState, file: ts.SourceFile, t
 		return guards.length > 1 ? f.call(f.field(tId, "intersection"), guards) : guards[0];
 	}
 
+	if (type.flags & ts.TypeFlags.Enum) {
+		const declarations = type.symbol.declarations;
+		if (!declarations || declarations.length != 1 || !f.is.enumDeclaration(declarations[0])) {
+			Diagnostics.error(diagnosticsLocation, `Invalid enum: ${typeChecker.typeToString(type)}`);
+		}
+
+		const declaration = declarations[0];
+		const memberValues = declaration.members.map((v) => {
+			const constant = typeChecker.getConstantValue(v);
+			if (constant === undefined)
+				Diagnostics.error(
+					diagnosticsLocation,
+					`Cannot compute constant of enum: ${typeChecker.typeToString(type)}`,
+				);
+
+			return constant;
+		});
+		return f.call(f.field(tId, "literal"), memberValues);
+	}
+
 	Diagnostics.error(diagnosticsLocation, `Invalid type: ${typeChecker.typeToString(type)}`);
 }
 

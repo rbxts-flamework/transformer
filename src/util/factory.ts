@@ -486,6 +486,10 @@ export namespace f {
 		/// Statements
 		/// Declarations
 
+		export function enumDeclaration(node?: ts.Node): node is ts.EnumDeclaration {
+			return node !== undefined && ts.isEnumDeclaration(node);
+		}
+
 		export function constructor(node?: ts.Node): node is ts.ConstructorDeclaration {
 			return node !== undefined && ts.isConstructorDeclaration(node);
 		}
