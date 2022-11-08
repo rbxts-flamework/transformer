@@ -90,37 +90,32 @@ export const NetworkingCreateEventMacro: CallMacro = {
 				getNodeUid(state, parentDeclaration),
 				f.object(convertTypeToGuardArray(serverType, serverTypeArg, isFunction)),
 				f.object(convertTypeToGuardArray(clientType, clientTypeArg, isFunction)),
-				...obfuscateMiddleware(state, node.arguments),
+				obfuscateMiddleware(state, node.arguments[0]),
+				obfuscateMiddleware(state, node.arguments[1]),
+				node.arguments[2] ?? f.nil(),
 			],
 			[obfuscatedServerTypeArg, obfuscatedClientTypeArg],
 		);
 	},
 };
 
-function obfuscateMiddleware(state: TransformState, args: ts.NodeArray<ts.Expression>) {
-	const newArgs = new Array<ts.Expression>();
-	for (const expression of args) {
-		if (f.is.object(expression)) {
-			newArgs.push(
-				f.update.object(
-					expression,
-					expression.properties.map((prop) => {
-						if (f.is.propertyAssignmentDeclaration(prop) && "text" in prop.name) {
-							return f.update.propertyAssignmentDeclaration(
-								prop,
-								prop.initializer,
-								f.string(state.obfuscateText(prop.name.text, "remotes")),
-							);
-						}
-						return prop;
-					}),
-				),
-			);
-		} else {
-			newArgs.push(expression);
-		}
+function obfuscateMiddleware(state: TransformState, expression?: ts.Expression) {
+	if (f.is.object(expression)) {
+		return f.update.object(
+			expression,
+			expression.properties.map((prop) => {
+				if (f.is.propertyAssignmentDeclaration(prop) && "text" in prop.name) {
+					return f.update.propertyAssignmentDeclaration(
+						prop,
+						prop.initializer,
+						f.string(state.obfuscateText(prop.name.text, "remotes")),
+					);
+				}
+				return prop;
+			}),
+		);
 	}
-	return newArgs;
+	return f.nil();
 }
 
 function createObfuscatedType(state: TransformState, originType: ts.TypeNode, node: ts.Type) {
