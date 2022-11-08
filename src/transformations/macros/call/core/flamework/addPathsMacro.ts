@@ -14,6 +14,18 @@ function getPathFromSpecifier(state: TransformState, source: ts.SourceFile, host
 	return state.rojoResolver?.getRbxPathFromFilePath(outputPath);
 }
 
+function getConfigValue(config: ts.ObjectLiteralExpression | undefined, name: string) {
+	if (!config) return;
+
+	const field = config.properties
+		.filter(f.is.propertyAssignmentDeclaration)
+		.find((v) => f.is.identifier(v.name) && v.name.text === name);
+
+	if (field && f.is.string(field.initializer)) {
+		return field.initializer.text;
+	}
+}
+
 export const FlameworkAddPathsMacro: CallMacro = {
 	getSymbol(state) {
 		return state.symbolProvider.flamework.get("addPaths");
@@ -24,12 +36,15 @@ export const FlameworkAddPathsMacro: CallMacro = {
 
 		const importId = state.addFileImport(state.getSourceFile(node), "@flamework/core", "Flamework");
 		const convertedArguments: ts.Expression[] = [];
+		const args = [...node.arguments];
+		const config = f.is.object(args[0]) ? (args.shift() as ts.ObjectLiteralExpression) : undefined;
+		const globType = getConfigValue(config, "glob");
 
-		for (const arg of node.arguments) {
+		for (const arg of args) {
 			if (!f.is.string(arg)) Diagnostics.error(arg, `Expected string`);
 
-			if (glob.hasMagic(arg.text)) {
-				const paths = glob.sync(`${arg.text}/`, {
+			if (glob.hasMagic(arg.text) || globType !== undefined) {
+				const paths = glob.sync(`${arg.text}${globType === "file" ? "" : "/"}`, {
 					root: state.rootDirectory,
 					cwd: state.rootDirectory,
 					nomount: true,
