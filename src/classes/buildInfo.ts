@@ -1,11 +1,12 @@
 import ts from "typescript";
 import path from "path";
 import fs from "fs";
-import ajv, { ValidateFunction } from "ajv";
 import crypto from "crypto";
 import { v4 as uuid } from "uuid";
-import { PACKAGE_ROOT, PKG_VERSION } from "./pathTranslator/constants";
+import { PKG_VERSION } from "./pathTranslator/constants";
 import { isPathDescendantOf } from "../util/functions/isPathDescendantOf";
+import { FlameworkConfig } from "./transformState";
+import { validateSchema } from "../util/schema";
 
 interface BuildDecorator {
 	name: string;
@@ -19,19 +20,22 @@ interface BuildClass {
 	decorators: Array<BuildDecorator>;
 }
 
-interface FlameworkBuildInfo {
+interface FlameworkMetadata {
+	config?: FlameworkConfig;
+}
+
+export interface FlameworkBuildInfo {
 	version: number;
 	flameworkVersion: string;
 	identifierPrefix?: string;
 	salt?: string;
+	metadata?: FlameworkMetadata;
 	stringHashes?: { [key: string]: string };
 	identifiers: { [key: string]: string };
 	classes?: Array<BuildClass>;
 }
 
 export class BuildInfo {
-	static validateBuildFn: ValidateFunction;
-
 	static fromPath(fileName: string) {
 		if (!ts.sys.fileExists(fileName)) return new BuildInfo(fileName);
 
@@ -39,7 +43,7 @@ export class BuildInfo {
 		if (!fileContents) throw new Error(`Could not read file ${fileName}`);
 
 		const buildInfo = JSON.parse(fileContents);
-		if (this.validateBuild(buildInfo)) {
+		if (validateSchema("buildInfo", buildInfo)) {
 			return new BuildInfo(fileName, buildInfo);
 		}
 
@@ -59,14 +63,6 @@ export class BuildInfo {
 				return this.fromPath(buildInfoPath);
 			}
 		}
-	}
-
-	static validateBuild(value: unknown): value is FlameworkBuildInfo {
-		if (!this.validateBuildFn) {
-			const SCHEMA_PATH = path.join(PACKAGE_ROOT, "flamework-schema.json");
-			this.validateBuildFn = new ajv().compile(JSON.parse(fs.readFileSync(SCHEMA_PATH).toString()));
-		}
-		return this.validateBuildFn(value) === true;
 	}
 
 	private static candidateCache = new Map<string, { result?: string }>();
@@ -188,6 +184,51 @@ export class BuildInfo {
 				return build;
 			}
 		}
+	}
+
+	/**
+	 * Sets metadata which will be exposed at runtime.
+	 */
+	setMetadata<K extends keyof FlameworkMetadata>(key: K, value: FlameworkMetadata[K]) {
+		this.buildInfo.metadata ??= {};
+		this.buildInfo.metadata[key] = value;
+	}
+
+	/**
+	 * Gets metadata exposed at runtime.
+	 */
+	getMetadata<K extends keyof FlameworkMetadata>(key: K) {
+		return this.buildInfo.metadata?.[key];
+	}
+
+	/**
+	 * Retrieves all metadata of this build info and its children.
+	 */
+	getChildrenMetadata<K extends keyof FlameworkMetadata>(name: K) {
+		const childrenMetadata = new Map<string, FlameworkMetadata[K]>();
+
+		for (const build of this.buildInfos) {
+			const key = build.getIdentifierPrefix();
+			const metadata = build.getMetadata(name);
+			if (!key) continue;
+			if (!metadata) continue;
+
+			childrenMetadata.set(key, metadata);
+
+			for (const [key, metadata] of build.getChildrenMetadata(name)) {
+				childrenMetadata.set(key, metadata);
+			}
+		}
+
+		return childrenMetadata;
+	}
+
+	/**
+	 * Sets configuration which will be exposed at runtime.
+	 */
+	setConfig(value: FlameworkConfig | undefined) {
+		this.buildInfo.metadata ??= {};
+		this.buildInfo.metadata.config = value;
 	}
 
 	/**

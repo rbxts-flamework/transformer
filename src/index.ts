@@ -29,6 +29,7 @@ export default function (program: ts.Program, config?: TransformerConfig) {
 			process.exit(1);
 		}
 
+		setTimeout(() => state.saveArtifacts());
 		return (file: ts.SourceFile) => {
 			if (!ts.isSourceFile(file)) {
 				emitTypescriptMismatch(state, chalk.red("Failed to load! TS version mismatch detected"));

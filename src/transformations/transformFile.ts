@@ -29,7 +29,6 @@ export function transformFile(state: TransformState, file: ts.SourceFile): ts.So
 	}
 
 	const sourceFile = f.update.sourceFile(file, statements);
-	state.buildInfo.save();
 
 	return sourceFile;
 }
