@@ -23,8 +23,16 @@ import { NodeMetadata } from "./nodeMetadata";
 import { RojoResolver } from "@roblox-ts/rojo-resolver";
 import { PathTranslator } from "./pathTranslator";
 import { assert } from "../util/functions/assert";
+import { getSchemaErrors, validateSchema } from "../util/schema";
 
 const IGNORE_RBXTS_REGEX = /node_modules\/@rbxts\/(compiler-types|types)\/.*\.d\.ts$/;
+
+/**
+ * Runtime configuration exposed via `flamework.json`
+ */
+export interface FlameworkConfig {
+	logLevel?: "none" | "verbose";
+}
 
 export interface TransformerConfig {
 	/**
@@ -90,6 +98,7 @@ export class TransformState {
 	public pathTranslator!: PathTranslator;
 	public buildInfo!: BuildInfo;
 
+	public includeDirectory: string;
 	public rootDirectory: string;
 	public packageName: string;
 	public isGame: boolean;
@@ -110,6 +119,23 @@ export class TransformState {
 			baseBuildInfo = new BuildInfo(path.join(this.currentDirectory, "flamework.build"));
 		}
 		this.buildInfo = baseBuildInfo;
+		this.buildInfo.resetConfig();
+
+		const configPath = path.join(this.rootDirectory, "flamework.json");
+		if (fs.existsSync(configPath)) {
+			const result = JSON.parse(fs.readFileSync(configPath, { encoding: "ascii" }));
+			if (validateSchema("config", result)) {
+				this.buildInfo.resetConfig(result as FlameworkConfig);
+			} else {
+				Logger.error(`Malformed flamework.json`);
+				for (const error of getSchemaErrors()) {
+					Logger.error(
+						`${error.keyword} ${error.instancePath}: ${error.message} ${JSON.stringify(error.params)}`,
+					);
+				}
+				process.exit(1);
+			}
+		}
 
 		const candidates = Cache.buildInfoCandidates ?? [];
 		if (!Cache.buildInfoCandidates) {
@@ -167,22 +193,29 @@ export class TransformState {
 		}
 	}
 
+	private getIncludePath() {
+		const includeArgvIndex = process.argv.findIndex((v) => v === "--i" || v === "--includePath");
+		const includePath = includeArgvIndex !== -1 ? process.argv[includeArgvIndex + 1] : undefined;
+		return path.resolve(includePath || path.join(this.rootDirectory, "include"));
+	}
+
 	constructor(
 		public program: ts.Program,
 		public context: ts.TransformationContext,
 		public config: TransformerConfig,
 	) {
+		const { result: packageJson, directory } = getPackageJson(this.currentDirectory);
+		this.rootDirectory = directory;
+		assert(packageJson.name);
+
 		this.setupRojo();
 		this.setupBuildInfo();
 
 		config.idGenerationMode ??= config.obfuscation ? "obfuscated" : "full";
 
-		const { result: packageJson, directory } = getPackageJson(this.currentDirectory);
-		this.rootDirectory = directory;
-		assert(packageJson.name);
-
 		this.packageName = packageJson.name;
 		this.isGame = !this.packageName.startsWith("@");
+		this.includeDirectory = this.getIncludePath();
 
 		if (!this.isGame) config.hashPrefix ??= this.packageName;
 		this.buildInfo.setIdentifierPrefix(config.hashPrefix);
@@ -192,6 +225,48 @@ export class TransformState {
 		}
 
 		Cache.isInitialCompile = false;
+	}
+
+	saveArtifacts() {
+		this.buildInfo.save();
+
+		if (this.isGame) {
+			const writtenFiles = new Map<string, string>();
+			const files = ["config.json"];
+
+			const packageConfig = this.buildInfo.getChildrenMetadata("config");
+			const config = this.buildInfo.getMetadata("config");
+			if (config || packageConfig.size > 0) {
+				writtenFiles.set(
+					"config.json",
+					JSON.stringify({
+						game: config,
+						packages: Object.fromEntries(packageConfig),
+					}),
+				);
+			}
+
+			const metadataPath = path.join(this.includeDirectory, "flamework");
+			const metadataExists = fs.existsSync(metadataPath);
+
+			if (!metadataExists && writtenFiles.size > 0) {
+				fs.mkdirSync(metadataPath);
+			}
+
+			for (const file of files) {
+				const filePath = path.join(metadataPath, file);
+				const contents = writtenFiles.get(file);
+				if (contents) {
+					fs.writeFileSync(filePath, contents);
+				} else if (fs.existsSync(filePath)) {
+					fs.rmSync(filePath);
+				}
+			}
+
+			if (metadataExists && writtenFiles.size === 0) {
+				fs.rmdirSync(metadataPath);
+			}
+		}
 	}
 
 	isUserMacro(symbol: ts.Symbol) {

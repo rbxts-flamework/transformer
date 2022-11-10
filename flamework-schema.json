@@ -1,61 +1,85 @@
 {
 	"$schema": "http://json-schema.org/draft-07/schema#",
-	"required": ["version", "flameworkVersion", "identifiers"],
+	"$id": "#root",
 	"type": "object",
 	"properties": {
-		"version": {
-			"type": "number"
-		},
-		"flameworkVersion": {
-			"type": "string"
-		},
-		"identifierPrefix": {
-			"type": "string"
-		},
-		"identifiers": {
+		"config": {
+			"$id": "config",
 			"type": "object",
-			"additionalProperties": {
-				"type": "string"
+			"properties": {
+				"logLevel": {
+					"enum": ["none", "verbose"]
+				}
 			}
 		},
-		"salt": {
-			"type": "string"
-		},
-		"stringHashes": {
+		"buildInfo": {
+			"$id": "buildInfo",
+			"required": ["version", "flameworkVersion", "identifiers"],
 			"type": "object",
-			"additionalProperties": {
-				"type": "string"
-			}
-		},
-		"classes": {
-			"type": "array",
-			"items": {
-				"type": "object",
-				"properties": {
-					"filePath": {
+			"properties": {
+				"version": {
+					"type": "number"
+				},
+				"flameworkVersion": {
+					"type": "string"
+				},
+				"identifierPrefix": {
+					"type": "string"
+				},
+				"identifiers": {
+					"type": "object",
+					"additionalProperties": {
 						"type": "string"
-					},
-					"internalId": {
+					}
+				},
+				"salt": {
+					"type": "string"
+				},
+				"stringHashes": {
+					"type": "object",
+					"additionalProperties": {
 						"type": "string"
-					},
-					"decorators": {
-						"type": "array",
-						"items": {
-							"type": "object",
-							"properties": {
-								"name": {
-									"type": "string"
-								},
-								"internalId": {
-									"type": "string"
-								},
-								"isFlameworkDecorator": {
-									"type": "boolean"
-								}
-							}
+					}
+				},
+				"metadata": {
+					"type": "object",
+					"properties": {
+						"config": {
+							"$ref": "config"
 						}
 					}
+				},
+				"classes": {
+					"type": "array",
+					"items": {
+						"type": "object",
+						"properties": {
+							"filePath": {
+								"type": "string"
+							},
+							"internalId": {
+								"type": "string"
+							},
+							"decorators": {
+								"type": "array",
+								"items": {
+									"type": "object",
+									"properties": {
+										"name": {
+											"type": "string"
+										},
+										"internalId": {
+											"type": "string"
+										},
+										"isFlameworkDecorator": {
+											"type": "boolean"
+										}
+									}
+								}
+							}
 
+						}
+					}
 				}
 			}
 		}
