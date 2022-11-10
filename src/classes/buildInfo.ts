@@ -226,25 +226,9 @@ export class BuildInfo {
 	/**
 	 * Sets configuration which will be exposed at runtime.
 	 */
-	setConfig<K extends keyof FlameworkConfig>(key: K, value: FlameworkConfig[K]) {
+	setConfig(value: FlameworkConfig | undefined) {
 		this.buildInfo.metadata ??= {};
-		this.buildInfo.metadata.config ??= {};
-		this.buildInfo.metadata.config[key] = value;
-	}
-
-	/**
-	 * Configuration does not persist between compilations.
-	 */
-	resetConfig(config?: FlameworkConfig) {
-		if (config) {
-			this.setMetadata("config", config);
-		} else if (this.buildInfo.metadata) {
-			delete this.buildInfo.metadata.config;
-
-			if (Object.keys(this.buildInfo.metadata).length === 0) {
-				this.buildInfo.metadata = undefined;
-			}
-		}
+		this.buildInfo.metadata.config = value;
 	}
 
 	/**

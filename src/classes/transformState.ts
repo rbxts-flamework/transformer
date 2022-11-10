@@ -119,13 +119,13 @@ export class TransformState {
 			baseBuildInfo = new BuildInfo(path.join(this.currentDirectory, "flamework.build"));
 		}
 		this.buildInfo = baseBuildInfo;
-		this.buildInfo.resetConfig();
+		this.buildInfo.setConfig(undefined);
 
 		const configPath = path.join(this.rootDirectory, "flamework.json");
 		if (fs.existsSync(configPath)) {
 			const result = JSON.parse(fs.readFileSync(configPath, { encoding: "ascii" }));
 			if (validateSchema("config", result)) {
-				this.buildInfo.resetConfig(result as FlameworkConfig);
+				this.buildInfo.setConfig(result);
 			} else {
 				Logger.error(`Malformed flamework.json`);
 				for (const error of getSchemaErrors()) {
