@@ -10,7 +10,7 @@
 				"logLevel": {
 					"enum": ["none", "verbose"]
 				},
-				"preIgniteDependencyWarning": {
+				"disableDependencyWarnings": {
 					"type": "boolean"
 				}
 			}
