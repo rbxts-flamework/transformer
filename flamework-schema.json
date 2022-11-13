@@ -9,6 +9,9 @@
 			"properties": {
 				"logLevel": {
 					"enum": ["none", "verbose"]
+				},
+				"preIgniteDependencyWarning": {
+					"type": "boolean"
 				}
 			}
 		},
