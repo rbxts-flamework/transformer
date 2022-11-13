@@ -32,6 +32,7 @@ const IGNORE_RBXTS_REGEX = /node_modules\/@rbxts\/(compiler-types|types)\/.*\.d\
  */
 export interface FlameworkConfig {
 	logLevel?: "none" | "verbose";
+	disableDependencyWarnings?: boolean;
 }
 
 export interface TransformerConfig {
