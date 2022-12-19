@@ -1,6 +1,6 @@
 {
 	"name": "rbxts-transformer-flamework",
-	"version": "1.0.0-beta.14",
+	"version": "1.0.0-beta.15",
 	"description": "An opinionated game framework for Roblox.",
 	"main": "out/index.js",
 	"author": "Fireboltofdeath",
