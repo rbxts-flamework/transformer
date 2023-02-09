@@ -31,6 +31,7 @@ const COMPONENTS_SYMBOLS: SymbolRecord = {
 	addComponent: { index: 1 },
 	removeComponent: { index: 1 },
 	getAllComponents: { index: 0 },
+	waitForComponent: { index: 1 },
 };
 
 export function getGenericIdMap(state: TransformState) {
