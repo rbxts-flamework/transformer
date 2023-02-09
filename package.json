@@ -18,6 +18,9 @@
 		"watch": "tsc -w",
 		"prepare": "tsc"
 	},
+	"peerDependencies": {
+		"typescript": "^4.9.5"
+	},
 	"dependencies": {
 		"@roblox-ts/rojo-resolver": "^1.0.2",
 		"ajv": "^8.6.3",
@@ -26,7 +29,6 @@
 		"glob": "^7.2.0",
 		"hashids": "^2.2.8",
 		"normalize-package-data": "^3.0.3",
-		"typescript": "^4.9.5",
 		"uuid": "^8.3.2"
 	},
 	"devDependencies": {
