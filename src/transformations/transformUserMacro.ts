@@ -14,7 +14,7 @@ export function transformUserMacro<T extends ts.NewExpression | ts.CallExpressio
 	const args = node.arguments ? [...node.arguments] : [];
 	const parameters = new Map<number, UserMacro>();
 	let highestParameterIndex = -1;
-	for (let i = 0; i < signature.parameters.length; i++) {
+	for (let i = 0; i < getParameterCount(state, signature); i++) {
 		const targetParameter = state.typeChecker.getParameterType(signature, i).getNonNullableType();
 		const userMacro = getUserMacroOfType(state, targetParameter);
 		if (userMacro) {
@@ -147,6 +147,21 @@ function getUserMacroOfType(state: TransformState, targetParameter: ts.Type): Us
 			metadata,
 		};
 	}
+}
+
+function isTupleType(state: TransformState, type: ts.Type): type is ts.TupleTypeReference {
+	return state.typeChecker.isTupleType(type);
+}
+
+function getParameterCount(state: TransformState, signature: ts.Signature) {
+	const length = signature.parameters.length;
+	if (ts.signatureHasRestParameter(signature)) {
+		const restType = state.typeChecker.getTypeOfSymbol(signature.parameters[length - 1]);
+		if (isTupleType(state, restType)) {
+			return length + restType.target.fixedLength - (restType.target.hasRestElement ? 0 : 1);
+		}
+	}
+	return length;
 }
 
 type UserMacro =
