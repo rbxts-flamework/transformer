@@ -10,6 +10,9 @@
 				"logLevel": {
 					"enum": ["none", "verbose"]
 				},
+				"profiling": {
+					"type": "boolean"
+				},
 				"disableDependencyWarnings": {
 					"type": "boolean"
 				}
