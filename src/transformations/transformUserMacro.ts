@@ -3,6 +3,7 @@ import ts from "typescript";
 import { Diagnostics } from "../classes/diagnostics";
 import { TransformState } from "../classes/transformState";
 import { f } from "../util/factory";
+import { assert } from "../util/functions/assert";
 import { buildGuardFromType } from "../util/functions/buildGuardFromType";
 import { getTypeUid } from "../util/uid";
 
@@ -16,7 +17,7 @@ export function transformUserMacro<T extends ts.NewExpression | ts.CallExpressio
 	let highestParameterIndex = -1;
 	for (let i = 0; i < getParameterCount(state, signature); i++) {
 		const targetParameter = state.typeChecker.getParameterType(signature, i).getNonNullableType();
-		const userMacro = getUserMacroOfType(state, targetParameter);
+		const userMacro = getUserMacroOfType(state, node, targetParameter);
 		if (userMacro) {
 			parameters.set(i, userMacro);
 			highestParameterIndex = Math.max(highestParameterIndex, i);
@@ -96,6 +97,18 @@ function buildUserMacro(state: TransformState, node: ts.Node, macro: UserMacro):
 		if (macro.metadata.has("text")) {
 			members.push(["text", f.string(node.getText())]);
 		}
+	} else if (macro.kind === "many") {
+		if (Array.isArray(macro.members)) {
+			return f.asNever(f.array(macro.members.map((userMacro) => buildUserMacro(state, node, userMacro))));
+		} else {
+			const elements = new Array<ts.ObjectLiteralElementLike>();
+
+			for (const [name, userMacro] of macro.members) {
+				elements.push(f.propertyAssignmentDeclaration(f.string(name), buildUserMacro(state, node, userMacro)));
+			}
+
+			return f.asNever(f.object(elements, false));
+		}
 	}
 
 	const modding = state.addFileImport(node.getSourceFile(), "@flamework/core", "Modding");
@@ -119,8 +132,50 @@ function getMetadataFromType(metadataType: ts.Type) {
 	return metadata;
 }
 
-function getUserMacroOfType(state: TransformState, targetParameter: ts.Type): UserMacro | undefined {
-	const genericMetadata = state.typeChecker.getTypeOfPropertyOfType(targetParameter, "_flamework_macro_generic");
+function getUserMacroOfMany(state: TransformState, node: ts.Node, target: ts.Type): UserMacro | undefined {
+	const basicUserMacro = getBasicUserMacro(state, target);
+	if (basicUserMacro) {
+		return basicUserMacro;
+	}
+
+	if (isTupleType(state, target)) {
+		const userMacros = new Array<UserMacro>();
+
+		for (const member of state.typeChecker.getTypeArguments(target)) {
+			const userMacro = getUserMacroOfMany(state, node, member);
+			if (!userMacro) return;
+
+			userMacros.push(userMacro);
+		}
+
+		return {
+			kind: "many",
+			members: userMacros,
+		};
+	} else if (isObjectType(target)) {
+		const userMacros = new Map<string, UserMacro>();
+
+		for (const member of target.getProperties()) {
+			const memberType = state.typeChecker.getTypeOfPropertyOfType(target, member.name);
+			if (!memberType) return;
+
+			const userMacro = getUserMacroOfMany(state, node, memberType);
+			if (!userMacro) return;
+
+			userMacros.set(member.name, userMacro);
+		}
+
+		return {
+			kind: "many",
+			members: userMacros,
+		};
+	}
+
+	Diagnostics.error(node, `Unknown type '${target.checker.typeToString(target)}' encountered`);
+}
+
+function getBasicUserMacro(state: TransformState, target: ts.Type): UserMacro | undefined {
+	const genericMetadata = state.typeChecker.getTypeOfPropertyOfType(target, "_flamework_macro_generic");
 	if (genericMetadata) {
 		const targetType = state.typeChecker.getTypeOfPropertyOfType(genericMetadata, "0");
 		const metadataType = state.typeChecker.getTypeOfPropertyOfType(genericMetadata, "1");
@@ -137,7 +192,7 @@ function getUserMacroOfType(state: TransformState, targetParameter: ts.Type): Us
 		};
 	}
 
-	const callerMetadata = state.typeChecker.getTypeOfPropertyOfType(targetParameter, "_flamework_macro_caller");
+	const callerMetadata = state.typeChecker.getTypeOfPropertyOfType(target, "_flamework_macro_caller");
 	if (callerMetadata) {
 		const metadata = getMetadataFromType(callerMetadata);
 		if (!metadata) return;
@@ -149,8 +204,21 @@ function getUserMacroOfType(state: TransformState, targetParameter: ts.Type): Us
 	}
 }
 
+function getUserMacroOfType(state: TransformState, node: ts.Node, target: ts.Type): UserMacro | undefined {
+	const manyMetadata = state.typeChecker.getTypeOfPropertyOfType(target, "_flamework_macro_many");
+	if (manyMetadata) {
+		return getUserMacroOfMany(state, node, manyMetadata);
+	} else {
+		return getBasicUserMacro(state, target);
+	}
+}
+
 function isTupleType(state: TransformState, type: ts.Type): type is ts.TupleTypeReference {
 	return state.typeChecker.isTupleType(type);
+}
+
+function isObjectType(type: ts.Type): boolean {
+	return type.isIntersection() ? type.types.every(isObjectType) : (type.flags & ts.TypeFlags.Object) !== 0;
 }
 
 function getParameterCount(state: TransformState, signature: ts.Signature) {
@@ -173,4 +241,8 @@ type UserMacro =
 	| {
 			kind: "caller";
 			metadata: Set<string>;
+	  }
+	| {
+			kind: "many";
+			members: Map<string, UserMacro> | Array<UserMacro>;
 	  };
