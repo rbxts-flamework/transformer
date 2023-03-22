@@ -160,6 +160,22 @@ function getUserMacroOfMany(state: TransformState, node: ts.Node, target: ts.Typ
 			kind: "many",
 			members: userMacros,
 		};
+	} else if (state.typeChecker.isArrayType(target)) {
+		const targetType = state.typeChecker.getTypeArguments(target as ts.TypeReference)[0];
+		const constituents = targetType.isUnion() ? targetType.types : [targetType];
+		const userMacros = new Array<UserMacro>();
+
+		for (const member of constituents) {
+			const userMacro = getUserMacroOfMany(state, node, member);
+			if (!userMacro) return;
+
+			userMacros.push(userMacro);
+		}
+
+		return {
+			kind: "many",
+			members: userMacros,
+		};
 	} else if (isObjectType(target)) {
 		const userMacros = new Map<string, UserMacro>();
 
