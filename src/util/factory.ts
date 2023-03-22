@@ -133,6 +133,10 @@ export namespace f {
 			: factory.createAsExpression(expression, node);
 	}
 
+	export function asNever(expression: ts.Expression) {
+		return f.as(expression, keywordType(ts.SyntaxKind.NeverKeyword));
+	}
+
 	export function binary(
 		left: ConvertableExpression,
 		op: ts.BinaryOperator | ts.BinaryOperatorToken,
