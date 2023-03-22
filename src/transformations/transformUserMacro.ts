@@ -3,7 +3,6 @@ import ts from "typescript";
 import { Diagnostics } from "../classes/diagnostics";
 import { TransformState } from "../classes/transformState";
 import { f } from "../util/factory";
-import { assert } from "../util/functions/assert";
 import { buildGuardFromType } from "../util/functions/buildGuardFromType";
 import { getTypeUid } from "../util/uid";
 
@@ -109,6 +108,15 @@ function buildUserMacro(state: TransformState, node: ts.Node, macro: UserMacro):
 
 			return f.asNever(f.object(elements, false));
 		}
+	} else if (macro.kind === "literal") {
+		const value = macro.value;
+		return typeof value === "string"
+			? f.string(value)
+			: typeof value === "number"
+			? f.number(value)
+			: typeof value === "boolean"
+			? f.bool(value)
+			: f.nil();
 	}
 
 	const modding = state.addFileImport(node.getSourceFile(), "@flamework/core", "Modding");
@@ -168,6 +176,21 @@ function getUserMacroOfMany(state: TransformState, node: ts.Node, target: ts.Typ
 		return {
 			kind: "many",
 			members: userMacros,
+		};
+	} else if (target.isStringLiteral() || target.isNumberLiteral()) {
+		return {
+			kind: "literal",
+			value: target.value,
+		};
+	} else if (target.flags & ts.TypeFlags.Undefined) {
+		return {
+			kind: "literal",
+			value: undefined,
+		};
+	} else if (target.flags & ts.TypeFlags.BooleanLiteral) {
+		return {
+			kind: "literal",
+			value: (target as ts.FreshableType).regularType === state.typeChecker.getTrueType() ? true : false,
 		};
 	}
 
@@ -245,4 +268,8 @@ type UserMacro =
 	| {
 			kind: "many";
 			members: Map<string, UserMacro> | Array<UserMacro>;
+	  }
+	| {
+			kind: "literal";
+			value: string | number | boolean | undefined;
 	  };
