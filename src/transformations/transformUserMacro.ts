@@ -110,13 +110,15 @@ function buildUserMacro(state: TransformState, node: ts.Node, macro: UserMacro):
 		}
 	} else if (macro.kind === "literal") {
 		const value = macro.value;
-		return typeof value === "string"
-			? f.string(value)
-			: typeof value === "number"
-			? f.number(value)
-			: typeof value === "boolean"
-			? f.bool(value)
-			: f.nil();
+		return f.asNever(
+			typeof value === "string"
+				? f.string(value)
+				: typeof value === "number"
+				? f.number(value)
+				: typeof value === "boolean"
+				? f.bool(value)
+				: f.nil(),
+		);
 	}
 
 	const modding = state.addFileImport(node.getSourceFile(), "@flamework/core", "Modding");
