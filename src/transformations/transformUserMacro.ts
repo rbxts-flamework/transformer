@@ -168,6 +168,11 @@ function getUserMacroOfMany(state: TransformState, node: ts.Node, target: ts.Typ
 		const userMacros = new Array<UserMacro>();
 
 		for (const member of constituents) {
+			// `never` may be encountered when a union has no contituents, so we should just return an empty array.
+			if (member.flags & ts.TypeFlags.Never) {
+				break;
+			}
+
 			const userMacro = getUserMacroOfMany(state, node, member);
 			if (!userMacro) return;
 
