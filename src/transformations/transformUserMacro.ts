@@ -248,6 +248,19 @@ function getBasicUserMacro(state: TransformState, target: ts.Type): UserMacro | 
 			metadata,
 		};
 	}
+
+	const hashMetadata = state.typeChecker.getTypeOfPropertyOfType(target, "_flamework_macro_hash");
+	if (hashMetadata) {
+		const text = state.typeChecker.getTypeOfPropertyOfType(hashMetadata, "0");
+		const context = state.typeChecker.getTypeOfPropertyOfType(hashMetadata, "1");
+		if (!text || !text.isStringLiteral()) return;
+		if (!context) return;
+
+		return {
+			kind: "literal",
+			value: state.buildInfo.hashString(text.value, context.isStringLiteral() ? context.value : "@"),
+		};
+	}
 }
 
 function getUserMacroOfType(state: TransformState, node: ts.Node, target: ts.Type): UserMacro | undefined {
