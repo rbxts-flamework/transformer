@@ -59,6 +59,37 @@ function isUndefinedArgument(argument: ts.Node | undefined) {
 	return argument ? f.is.identifier(argument) && argument.text === "undefined" : true;
 }
 
+function getLabels(state: TransformState, type: ts.Type): UserMacro {
+	if (!isTupleType(state, type)) {
+		return {
+			kind: "literal",
+			value: undefined,
+		};
+	}
+
+	const names = new Array<UserMacro>();
+	const declarations = type.target.labeledElementDeclarations;
+
+	if (!declarations) {
+		return {
+			kind: "literal",
+			value: undefined,
+		};
+	}
+
+	for (const namedMember of declarations) {
+		names.push({
+			kind: "literal",
+			value: (namedMember.name as ts.Identifier).text,
+		});
+	}
+
+	return {
+		kind: "many",
+		members: names,
+	};
+}
+
 function buildUserMacro(state: TransformState, node: ts.Node, macro: UserMacro): ts.Expression {
 	const members = new Array<[string, ts.Expression]>();
 
@@ -260,6 +291,12 @@ function getBasicUserMacro(state: TransformState, target: ts.Type): UserMacro | 
 			kind: "literal",
 			value: state.buildInfo.hashString(text.value, context.isStringLiteral() ? context.value : "@"),
 		};
+	}
+
+	const nonNullableTarget = target.getNonNullableType();
+	const labelMetadata = state.typeChecker.getTypeOfPropertyOfType(nonNullableTarget, "_flamework_macro_tuple_labels");
+	if (labelMetadata) {
+		return getLabels(state, labelMetadata);
 	}
 }
 
