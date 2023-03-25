@@ -3,7 +3,6 @@ import ts from "typescript";
 import { Diagnostics } from "../classes/diagnostics";
 import { TransformState } from "../classes/transformState";
 import { f } from "../util/factory";
-import { assert } from "../util/functions/assert";
 import { buildGuardFromType } from "../util/functions/buildGuardFromType";
 import { getTypeUid } from "../util/uid";
 
@@ -60,6 +59,37 @@ function isUndefinedArgument(argument: ts.Node | undefined) {
 	return argument ? f.is.identifier(argument) && argument.text === "undefined" : true;
 }
 
+function getLabels(state: TransformState, type: ts.Type): UserMacro {
+	if (!isTupleType(state, type)) {
+		return {
+			kind: "literal",
+			value: undefined,
+		};
+	}
+
+	const names = new Array<UserMacro>();
+	const declarations = type.target.labeledElementDeclarations;
+
+	if (!declarations) {
+		return {
+			kind: "literal",
+			value: undefined,
+		};
+	}
+
+	for (const namedMember of declarations) {
+		names.push({
+			kind: "literal",
+			value: (namedMember.name as ts.Identifier).text,
+		});
+	}
+
+	return {
+		kind: "many",
+		members: names,
+	};
+}
+
 function buildUserMacro(state: TransformState, node: ts.Node, macro: UserMacro): ts.Expression {
 	const members = new Array<[string, ts.Expression]>();
 
@@ -109,6 +139,17 @@ function buildUserMacro(state: TransformState, node: ts.Node, macro: UserMacro):
 
 			return f.asNever(f.object(elements, false));
 		}
+	} else if (macro.kind === "literal") {
+		const value = macro.value;
+		return f.asNever(
+			typeof value === "string"
+				? f.string(value)
+				: typeof value === "number"
+				? f.number(value)
+				: typeof value === "boolean"
+				? f.bool(value)
+				: f.nil(),
+		);
 	}
 
 	const modding = state.addFileImport(node.getSourceFile(), "@flamework/core", "Modding");
@@ -152,6 +193,27 @@ function getUserMacroOfMany(state: TransformState, node: ts.Node, target: ts.Typ
 			kind: "many",
 			members: userMacros,
 		};
+	} else if (state.typeChecker.isArrayType(target)) {
+		const targetType = state.typeChecker.getTypeArguments(target as ts.TypeReference)[0];
+		const constituents = targetType.isUnion() ? targetType.types : [targetType];
+		const userMacros = new Array<UserMacro>();
+
+		for (const member of constituents) {
+			// `never` may be encountered when a union has no contituents, so we should just return an empty array.
+			if (member.flags & ts.TypeFlags.Never) {
+				break;
+			}
+
+			const userMacro = getUserMacroOfMany(state, node, member);
+			if (!userMacro) return;
+
+			userMacros.push(userMacro);
+		}
+
+		return {
+			kind: "many",
+			members: userMacros,
+		};
 	} else if (isObjectType(target)) {
 		const userMacros = new Map<string, UserMacro>();
 
@@ -168,6 +230,21 @@ function getUserMacroOfMany(state: TransformState, node: ts.Node, target: ts.Typ
 		return {
 			kind: "many",
 			members: userMacros,
+		};
+	} else if (target.isStringLiteral() || target.isNumberLiteral()) {
+		return {
+			kind: "literal",
+			value: target.value,
+		};
+	} else if (target.flags & ts.TypeFlags.Undefined) {
+		return {
+			kind: "literal",
+			value: undefined,
+		};
+	} else if (target.flags & ts.TypeFlags.BooleanLiteral) {
+		return {
+			kind: "literal",
+			value: (target as ts.FreshableType).regularType === state.typeChecker.getTrueType() ? true : false,
 		};
 	}
 
@@ -201,6 +278,29 @@ function getBasicUserMacro(state: TransformState, target: ts.Type): UserMacro | 
 			kind: "caller",
 			metadata,
 		};
+	}
+
+	const hashMetadata = state.typeChecker.getTypeOfPropertyOfType(target, "_flamework_macro_hash");
+	if (hashMetadata) {
+		const text = state.typeChecker.getTypeOfPropertyOfType(hashMetadata, "0");
+		const context = state.typeChecker.getTypeOfPropertyOfType(hashMetadata, "1");
+		const isObfuscation = state.typeChecker.getTypeOfPropertyOfType(hashMetadata, "2");
+		if (!text || !text.isStringLiteral()) return;
+		if (!context) return;
+
+		const contextName = context.isStringLiteral() ? context.value : "@";
+		return {
+			kind: "literal",
+			value: isObfuscation
+				? state.obfuscateText(text.value, contextName)
+				: state.buildInfo.hashString(text.value, contextName),
+		};
+	}
+
+	const nonNullableTarget = target.getNonNullableType();
+	const labelMetadata = state.typeChecker.getTypeOfPropertyOfType(nonNullableTarget, "_flamework_macro_tuple_labels");
+	if (labelMetadata) {
+		return getLabels(state, labelMetadata);
 	}
 }
 
@@ -245,4 +345,8 @@ type UserMacro =
 	| {
 			kind: "many";
 			members: Map<string, UserMacro> | Array<UserMacro>;
+	  }
+	| {
+			kind: "literal";
+			value: string | number | boolean | undefined;
 	  };
