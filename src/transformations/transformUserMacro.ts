@@ -284,12 +284,16 @@ function getBasicUserMacro(state: TransformState, target: ts.Type): UserMacro | 
 	if (hashMetadata) {
 		const text = state.typeChecker.getTypeOfPropertyOfType(hashMetadata, "0");
 		const context = state.typeChecker.getTypeOfPropertyOfType(hashMetadata, "1");
+		const isObfuscation = state.typeChecker.getTypeOfPropertyOfType(hashMetadata, "2");
 		if (!text || !text.isStringLiteral()) return;
 		if (!context) return;
 
+		const contextName = context.isStringLiteral() ? context.value : "@";
 		return {
 			kind: "literal",
-			value: state.buildInfo.hashString(text.value, context.isStringLiteral() ? context.value : "@"),
+			value: isObfuscation
+				? state.obfuscateText(text.value, contextName)
+				: state.buildInfo.hashString(text.value, contextName),
 		};
 	}
 
