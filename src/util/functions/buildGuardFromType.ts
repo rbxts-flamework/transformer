@@ -128,8 +128,9 @@ export function buildGuardFromType(state: TransformState, file: ts.SourceFile, t
 		return buildGuardFromType(state, file, constraint);
 	}
 
-	if (type.isStringLiteral() || type.isNumberLiteral()) {
-		return f.call(f.field(tId, "literal"), [type.value]);
+	const literals = getLiteral(type);
+	if (literals) {
+		return f.call(f.field(tId, "literal"), literals);
 	}
 
 	if (typeChecker.isTupleType(type)) {
@@ -162,16 +163,6 @@ export function buildGuardFromType(state: TransformState, file: ts.SourceFile, t
 		return f.field(tId, "any");
 	}
 
-	const trueType = typeChecker.getTrueType();
-	if (type === trueType) {
-		return f.call(f.field(tId, "literal"), [true]);
-	}
-
-	const falseType = typeChecker.getFalseType();
-	if (type === falseType) {
-		return f.call(f.field(tId, "literal"), [false]);
-	}
-
 	const stringType = typeChecker.getStringType();
 	if (type === stringType) {
 		return f.field(tId, "string");
@@ -188,11 +179,6 @@ export function buildGuardFromType(state: TransformState, file: ts.SourceFile, t
 
 	const symbol = type.getSymbol();
 	if (!symbol) Diagnostics.error(diagnosticsLocation, "Attribute type has no symbol");
-
-	const enumType = type.checker.resolveName("Enum", undefined, ts.SymbolFlags.Type, false);
-	if (symbol.parent?.parent && type.checker.getMergedSymbol(symbol.parent.parent) === enumType) {
-		return f.call(f.field(tId, "literal"), [f.field(f.field("Enum", symbol.parent.name), symbol.name)]);
-	}
 
 	const mapSymbol = typeChecker.resolveName("Map", undefined, ts.SymbolFlags.Type, false);
 	const readonlyMapSymbol = typeChecker.resolveName("ReadonlyMap", undefined, ts.SymbolFlags.Type, false);
@@ -266,26 +252,6 @@ export function buildGuardFromType(state: TransformState, file: ts.SourceFile, t
 		return guards.length > 1 ? f.call(f.field(tId, "intersection"), guards) : guards[0];
 	}
 
-	if (type.flags & ts.TypeFlags.Enum) {
-		const declarations = type.symbol.declarations;
-		if (!declarations || declarations.length != 1 || !f.is.enumDeclaration(declarations[0])) {
-			Diagnostics.error(diagnosticsLocation, `Invalid enum: ${typeChecker.typeToString(type)}`);
-		}
-
-		const declaration = declarations[0];
-		const memberValues = declaration.members.map((v) => {
-			const constant = typeChecker.getConstantValue(v);
-			if (constant === undefined)
-				Diagnostics.error(
-					diagnosticsLocation,
-					`Cannot compute constant of enum: ${typeChecker.typeToString(type)}`,
-				);
-
-			return constant;
-		});
-		return f.call(f.field(tId, "literal"), memberValues);
-	}
-
 	Diagnostics.error(diagnosticsLocation, `Invalid type: ${typeChecker.typeToString(type)}`);
 }
 
@@ -297,10 +263,14 @@ function buildUnionGuard(state: TransformState, file: ts.SourceFile, type: ts.Un
 		return f.field(tId, "boolean");
 	}
 
-	const { enums, types: simplifiedTypes } = simplifyUnion(type);
+	const { enums, literals, types: simplifiedTypes } = simplifyUnion(type);
 	const [isOptional, types] = extractTypes(type.checker, simplifiedTypes);
 	const guards = types.map((type) => buildGuardFromType(state, file, type));
 	guards.push(...enums.map((enumId) => f.call(f.field(tId, "enum"), [f.field("Enum", enumId)])));
+
+	if (literals.length > 0) {
+		guards.push(f.call(f.field(tId, "literal"), literals));
+	}
 
 	const union = guards.length > 1 ? f.call(f.field(tId, "union"), guards) : guards[0];
 	if (!union) return f.field(tId, "none");
@@ -329,17 +299,34 @@ function simplifyUnion(type: ts.UnionType) {
 		type.aliasSymbol.parent &&
 		type.checker.getMergedSymbol(type.aliasSymbol.parent) === enumType
 	) {
-		return { enums: [type.aliasSymbol.name], types: [] };
+		return { enums: [type.aliasSymbol.name], types: [], literals: [] };
 	}
 
 	const currentTypes = type.types;
 	const possibleEnums = new Map<ts.Symbol, Set<ts.Type>>();
 	const enums = new Array<string>();
 	const types = new Array<ts.Type>();
+	const literals = new Array<ts.Expression>();
+	const isBoolean = currentTypes.filter((v) => v.flags & ts.TypeFlags.BooleanLiteral).length === 2;
+
+	if (isBoolean) {
+		types.push(type.checker.getBooleanType());
+	}
 
 	for (const type of currentTypes) {
 		// We do not need to generate symbol types as they don't exist in Lua.
 		if (type.flags & ts.TypeFlags.ESSymbolLike) {
+			continue;
+		}
+
+		// This is a full `boolean`, so we can skip the individual literals.
+		if (isBoolean && type.flags & ts.TypeFlags.BooleanLiteral) {
+			continue;
+		}
+
+		const literal = getLiteral(type, true);
+		if (literal) {
+			literals.push(...literal);
 			continue;
 		}
 
@@ -367,11 +354,13 @@ function simplifyUnion(type: ts.UnionType) {
 		if (set.size + 1 === symbol.exports?.size) {
 			enums.push(symbol.name);
 		} else {
-			types.push(...set);
+			for (const type of set) {
+				literals.push(f.field(f.field("Enum", symbol.name), type.symbol.name));
+			}
 		}
 	}
 
-	return { enums, types };
+	return { enums, types, literals };
 }
 
 function extractTypes(typeChecker: ts.TypeChecker, types: ts.Type[]): [isOptional: boolean, types: ts.Type[]] {
@@ -382,6 +371,49 @@ function extractTypes(typeChecker: ts.TypeChecker, types: ts.Type[]): [isOptiona
 		types.some((type) => type === undefinedtype || type === voidType),
 		types.filter((type) => type !== undefinedtype && type !== voidType),
 	];
+}
+
+function getLiteral(type: ts.Type, withoutEnums = false): ts.Expression[] | undefined {
+	if (type.isStringLiteral() || type.isNumberLiteral()) {
+		return [typeof type.value === "string" ? f.string(type.value) : f.number(type.value)];
+	}
+
+	const trueType = type.checker.getTrueType();
+	if (type === trueType) {
+		return [f.bool(true)];
+	}
+
+	const falseType = type.checker.getFalseType();
+	if (type === falseType) {
+		return [f.bool(false)];
+	}
+
+	if (type.flags & ts.TypeFlags.Enum) {
+		const declarations = type.symbol.declarations;
+		if (!declarations || declarations.length != 1 || !f.is.enumDeclaration(declarations[0])) return;
+
+		const declaration = declarations[0];
+		const memberValues = new Array<ts.Expression>();
+
+		for (const member of declaration.members) {
+			const constant = type.checker.getConstantValue(member);
+			if (constant === undefined) return;
+
+			memberValues.push(typeof constant === "string" ? f.string(constant) : f.number(constant));
+		}
+
+		return memberValues;
+	}
+
+	if (!withoutEnums) {
+		const symbol = type.getSymbol();
+		if (!symbol) return;
+
+		const enumType = type.checker.resolveName("Enum", undefined, ts.SymbolFlags.Type, false);
+		if (symbol.parent?.parent && type.checker.getMergedSymbol(symbol.parent.parent) === enumType) {
+			return [f.field(f.field("Enum", symbol.parent.name), symbol.name)];
+		}
+	}
 }
 
 function isObjectType(type: ts.Type): type is ts.InterfaceType {
