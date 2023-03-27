@@ -109,11 +109,11 @@ export namespace f {
 
 	export function object(
 		properties:
-			| ts.ObjectLiteralElementLike[]
+			| readonly ts.ObjectLiteralElementLike[]
 			| { [key: string]: ConvertableExpression | Array<ConvertableExpression> },
 		multiLine = true,
 	) {
-		if (Array.isArray(properties)) {
+		if (properties instanceof Array) {
 			return factory.createObjectLiteralExpression(properties, multiLine);
 		} else {
 			const realProperties: ts.ObjectLiteralElementLike[] = [];

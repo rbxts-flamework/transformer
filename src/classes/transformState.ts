@@ -24,6 +24,7 @@ import { RojoResolver } from "@roblox-ts/rojo-resolver";
 import { PathTranslator } from "./pathTranslator";
 import { assert } from "../util/functions/assert";
 import { getSchemaErrors, validateSchema } from "../util/schema";
+import { shuffle } from "../util/functions/shuffle";
 
 const IGNORE_RBXTS_REGEX = /node_modules\/@rbxts\/(compiler-types|types)\/.*\.d\.ts$/;
 
@@ -409,6 +410,10 @@ export class TransformState {
 
 	obfuscateText(text: string, context?: string) {
 		return this.config.obfuscation ? this.buildInfo.hashString(text, context) : text;
+	}
+
+	obfuscateArray<T>(array: ReadonlyArray<T>) {
+		return this.config.obfuscation ? shuffle(array) : array;
 	}
 
 	public hasErrors = false;

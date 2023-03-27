@@ -68,7 +68,7 @@ export const NetworkingCreateEventMacro: CallMacro = {
 				);
 			}
 
-			return assignments;
+			return state.obfuscateArray(assignments);
 		};
 
 		const isFunction = macro.symbol === macro.symbols[1];
@@ -103,7 +103,7 @@ function obfuscateMiddleware(state: TransformState, expression?: ts.Expression) 
 	if (f.is.object(expression)) {
 		return f.update.object(
 			expression,
-			expression.properties.map((prop) => {
+			state.obfuscateArray(expression.properties).map((prop) => {
 				if (f.is.propertyAssignmentDeclaration(prop) && "text" in prop.name) {
 					return f.update.propertyAssignmentDeclaration(
 						prop,
