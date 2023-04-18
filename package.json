@@ -19,7 +19,7 @@
 		"prepare": "tsc"
 	},
 	"peerDependencies": {
-		"typescript": "^4.9.5"
+		"typescript": "^4.9"
 	},
 	"dependencies": {
 		"@roblox-ts/rojo-resolver": "^1.0.2",
