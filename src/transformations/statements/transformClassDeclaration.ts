@@ -290,7 +290,7 @@ function getAssignabilityDiagnostics(
 }
 
 function updateClass(state: TransformState, node: ts.ClassDeclaration) {
-	const modifiers = ts.canHaveModifiers(node) ? ts.getModifiers(node) : undefined;
+	const modifiers = getAllModifiers(node);
 	return f.update.classDeclaration(
 		node,
 		node.name ? state.transformNode(node.name) : undefined,
@@ -298,11 +298,11 @@ function updateClass(state: TransformState, node: ts.ClassDeclaration) {
 			.map((node) => state.transformNode(node))
 			.map((member) => {
 				// Strip Flamework decorators from members
-				const memberDecorators = ts.canHaveDecorators(member) ? ts.getDecorators(member) : undefined;
-				if (memberDecorators) {
-					const filteredDecorators = transformModifiers(state, memberDecorators);
+				const modifiers = getAllModifiers(member);
+				if (modifiers) {
+					const filteredModifiers = transformModifiers(state, modifiers);
 					if (f.is.propertyDeclaration(member)) {
-						return f.update.propertyDeclaration(member, undefined, undefined, filteredDecorators);
+						return f.update.propertyDeclaration(member, undefined, undefined, filteredModifiers);
 					} else if (f.is.methodDeclaration(member)) {
 						return f.update.methodDeclaration(
 							member,
@@ -310,7 +310,7 @@ function updateClass(state: TransformState, node: ts.ClassDeclaration) {
 							undefined,
 							undefined,
 							undefined,
-							filteredDecorators,
+							filteredModifiers,
 						);
 					}
 				}
@@ -321,6 +321,10 @@ function updateClass(state: TransformState, node: ts.ClassDeclaration) {
 		node.typeParameters,
 		modifiers && transformModifiers(state, modifiers),
 	);
+}
+
+function getAllModifiers(node: ts.Node) {
+	return ts.canHaveDecorators(node) || ts.canHaveModifiers(node) ? node.modifiers : undefined;
 }
 
 function transformModifiers(state: TransformState, modifiers: readonly ts.ModifierLike[]) {
