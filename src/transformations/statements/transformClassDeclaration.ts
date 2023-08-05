@@ -161,10 +161,16 @@ function transformDecoratorConfig(
 		assert(!expr.arguments[0] || f.is.object(expr.arguments[0]));
 
 		const baseConfig = expr.arguments[0] ? expr.arguments[0] : f.object([]);
-		return [f.update.object(baseConfig, updateComponentConfig(state, declaration, [...baseConfig.properties]))];
+		const componentConfig = updateComponentConfig(state, declaration, [...baseConfig.properties]);
+		return [
+			f.update.object(
+				baseConfig,
+				componentConfig.map((v) => (baseConfig.properties.includes(v) ? state.transformNode(v) : v)),
+			),
+		];
 	}
 
-	return expr.arguments;
+	return expr.arguments.map((v) => state.transformNode(v));
 }
 
 function getDecoratorFields(
@@ -401,7 +407,10 @@ function updateAttributeGuards(
 		properties.push(
 			f.update.propertyAssignmentDeclaration(
 				attributes,
-				f.update.object(attributes.initializer, [...attributes.initializer.properties, ...filteredGuards]),
+				f.update.object(attributes.initializer, [
+					...attributes.initializer.properties.map((v) => state.transformNode(v)),
+					...filteredGuards,
+				]),
 				attributes.name,
 			),
 		);
