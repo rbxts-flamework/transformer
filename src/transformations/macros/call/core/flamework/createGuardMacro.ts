@@ -15,7 +15,7 @@ export const FlameworkCreateGuardMacro: CallMacro = {
 
 		const tId = state.addFileImport(node.getSourceFile(), "@rbxts/t", "t");
 		const type = state.typeChecker.getTypeAtLocation(firstType);
-		const guard = relocateDiagnostic(node, buildGuardFromType, state, state.getSourceFile(node), type);
+		const guard = relocateDiagnostic(node, buildGuardFromType, state, firstType, type);
 		return f.as(guard, f.referenceType(f.qualifiedNameType(tId, "check"), [firstType]), true);
 	},
 };

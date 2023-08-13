@@ -47,13 +47,7 @@ export const NetworkingConnectMacro: CallMacro = {
 			} else if (param.type) {
 				const tId = state.addFileImport(node.getSourceFile(), "@rbxts/t", "t");
 				const type = state.typeChecker.getTypeAtLocation(param);
-				const guard = relocateDiagnostic(
-					param.type,
-					buildGuardFromType,
-					state,
-					state.getSourceFile(node),
-					type,
-				);
+				const guard = relocateDiagnostic(param.type, buildGuardFromType, state, node, type);
 				generatedGuards[index] = f.as(
 					guard,
 					f.referenceType(f.qualifiedNameType(tId, "check"), [param.type]),

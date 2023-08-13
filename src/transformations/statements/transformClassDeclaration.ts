@@ -1,12 +1,13 @@
 import assert from "assert";
 import ts from "typescript";
-import { Diagnostics } from "../../classes/diagnostics";
+import { DiagnosticError, Diagnostics } from "../../classes/diagnostics";
 import { NodeMetadata } from "../../classes/nodeMetadata";
 import { TransformState } from "../../classes/transformState";
 import { f } from "../../util/factory";
 import { buildGuardFromType, buildGuardsFromType } from "../../util/functions/buildGuardFromType";
 import { getSuperClasses } from "../../util/functions/getSuperClasses";
 import { getNodeUid, getSymbolUid, getTypeUid } from "../../util/uid";
+import { captureDiagnostic, catchDiagnostic, withDiagnosticContext } from "../../util/diagnosticsUtils";
 
 export function transformClassDeclaration(state: TransformState, node: ts.ClassDeclaration) {
 	const symbol = state.getSymbol(node);
@@ -76,7 +77,7 @@ function generateFieldMetadata(state: TransformState, metadata: NodeMetadata, fi
 	}
 
 	if (metadata.isRequested("flamework:guard")) {
-		const guard = buildGuardFromType(state, state.getSourceFile(field), type);
+		const guard = buildGuardFromType(state, field.type ?? field, type);
 		fields.push(["flamework:guard", guard]);
 	}
 
@@ -99,7 +100,7 @@ function generateMethodMetadata(state: TransformState, metadata: NodeMetadata, m
 	}
 
 	if (metadata.isRequested("flamework:return_guard")) {
-		const guard = buildGuardFromType(state, state.getSourceFile(method), baseSignature.getReturnType());
+		const guard = buildGuardFromType(state, method.type ?? method, baseSignature.getReturnType());
 		fields.push(["flamework:return_guard", guard]);
 	}
 
@@ -129,7 +130,7 @@ function generateMethodMetadata(state: TransformState, metadata: NodeMetadata, m
 
 		if (metadata.isRequested("flamework:parameter_guards")) {
 			const type = state.typeChecker.getTypeAtLocation(parameter);
-			const guard = buildGuardFromType(state, state.getSourceFile(method), type);
+			const guard = buildGuardFromType(state, parameter, type);
 			parameterGuards.push(guard);
 		}
 	}
@@ -397,7 +398,11 @@ function updateAttributeGuards(
 	if (!attributesType) return;
 
 	const attributes = properties.find((x) => x.name && "text" in x.name && x.name.text === "attributes");
-	const attributeGuards = buildGuardsFromType(state, state.getSourceFile(node), attributesType);
+	const attributeGuards = withDiagnosticContext(
+		node.name ?? node,
+		() => `Failed to generate component attributes: ${state.typeChecker.typeToString(attributesType)}`,
+		() => buildGuardsFromType(state, node.name ?? node, attributesType),
+	);
 
 	const omittedGuards = calculateOmittedGuards(state, node, attributes);
 	const filteredGuards = attributeGuards.filter((x) => !omittedGuards.has((x.name as ts.StringLiteral).text));
@@ -449,7 +454,7 @@ function updateInstanceGuard(
 	if (!superInstanceType) return;
 
 	if (!type.checker.isTypeAssignableTo(superInstanceType, instanceType)) {
-		const guard = buildGuardFromType(state, state.getSourceFile(node), instanceType);
+		const guard = buildGuardFromType(state, node, instanceType);
 		properties.push(f.propertyAssignmentDeclaration("instanceGuard", guard));
 	}
 
