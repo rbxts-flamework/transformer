@@ -213,8 +213,14 @@ export function createGuardGenerator(state: TransformState, file: ts.SourceFile,
 			return f.call(f.field(tId, "union"), [f.field(tId, "any"), f.field(tId, "none")]);
 		}
 
+		if (type.flags & ts.TypeFlags.TemplateLiteral) {
+			fail(`Flamework encountered a template literal which is unsupported: ${type.checker.typeToString(type)}`);
+		}
+
 		const symbol = type.getSymbol();
-		if (!symbol) fail("Attribute type has no symbol");
+		if (!symbol) {
+			fail(`An unknown type was encountered with no symbol: ${typeChecker.typeToString(type)}`);
+		}
 
 		const mapSymbol = typeChecker.resolveName("Map", undefined, ts.SymbolFlags.Type, false);
 		const readonlyMapSymbol = typeChecker.resolveName("ReadonlyMap", undefined, ts.SymbolFlags.Type, false);
