@@ -99,7 +99,7 @@ function buildUserMacro(state: TransformState, node: ts.Node, macro: UserMacro):
 		}
 
 		if (macro.metadata.has("guard")) {
-			members.push(["guard", buildGuardFromType(state, node.getSourceFile(), macro.target)]);
+			members.push(["guard", buildGuardFromType(state, node, macro.target)]);
 		}
 
 		if (macro.metadata.has("text")) {

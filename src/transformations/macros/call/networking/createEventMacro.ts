@@ -51,18 +51,33 @@ export const NetworkingCreateEventMacro: CallMacro = {
 					if (parameterDeclaration && ts.isRestParameter(parameterDeclaration as ts.ParameterDeclaration)) {
 						const elementType = state.typeChecker.getElementTypeOfArrayType(paramType);
 						if (elementType) {
-							restGuard = buildGuardFromType(state, file, elementType);
+							restGuard = buildGuardFromType(state, parameterDeclaration, elementType, file);
 						}
 						break;
 					}
-					guards.push(buildGuardFromType(state, file, paramType));
+					guards.push(
+						buildGuardFromType(
+							state,
+							parameterDeclaration ?? callSignature.getDeclaration(),
+							paramType,
+							file,
+						),
+					);
 				}
 
 				assignments.push(
 					f.propertyAssignmentDeclaration(
 						state.obfuscateText(prop.name, "remotes"),
 						generateReturn
-							? [[guards, restGuard], buildGuardFromType(state, file, callSignature.getReturnType())]
+							? [
+									[guards, restGuard],
+									buildGuardFromType(
+										state,
+										callSignature.getDeclaration().type ?? callSignature.getDeclaration(),
+										callSignature.getReturnType(),
+										file,
+									),
+							  ]
 							: [guards, restGuard],
 					),
 				);

@@ -16,7 +16,7 @@ function createDiagnosticAtLocation(
 	};
 }
 
-class DiagnosticError extends Error {
+export class DiagnosticError extends Error {
 	constructor(public diagnostic: ts.DiagnosticWithLocation) {
 		super(diagnostic.messageText as string);
 	}

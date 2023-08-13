@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import ts from "typescript";
-import { Diagnostics } from "../classes/diagnostics";
+import { DiagnosticError, Diagnostics } from "../classes/diagnostics";
 
 type ValueOrDiagnostic<T> =
 	| { success: true; diagnostic?: ts.DiagnosticWithLocation; value: T }
@@ -45,4 +45,24 @@ export function catchDiagnostic<T>(fallback: T, cb: () => T): T {
 	}
 
 	return result.value ?? fallback;
+}
+
+export function withDiagnosticContext<T>(node: ts.Node, message: (() => string) | string, callback: () => T) {
+	const result = captureDiagnostic(callback);
+	if (!result.success) {
+		const newDiagnostic = Diagnostics.createDiagnostic(
+			node,
+			ts.DiagnosticCategory.Error,
+			typeof message === "string" ? message : message(),
+		);
+
+		ts.addRelatedInfo(newDiagnostic, result.diagnostic);
+		for (const relatedInfo of result.diagnostic.relatedInformation ?? []) {
+			ts.addRelatedInfo(newDiagnostic, relatedInfo);
+		}
+
+		throw new DiagnosticError(newDiagnostic);
+	}
+
+	return result.value;
 }
