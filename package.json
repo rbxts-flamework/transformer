@@ -18,9 +18,6 @@
 		"watch": "tsc -w",
 		"prepare": "tsc"
 	},
-	"peerDependencies": {
-		"typescript": "^4.9"
-	},
 	"dependencies": {
 		"@roblox-ts/rojo-resolver": "^1.0.2",
 		"ajv": "^8.6.3",
@@ -43,7 +40,11 @@
 		"eslint-config-prettier": "^8.3.0",
 		"eslint-plugin-prettier": "^4.0.0",
 		"prettier": "^2.4.1",
-		"ts-expose-internals": "^4.9.5"
+		"ts-expose-internals": "^4.9.4",
+		"typescript": "^4.9.4"
+	},
+	"peerDependencies": {
+		"typescript": "*"
 	},
 	"files": [
 		"out",
