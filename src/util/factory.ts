@@ -623,7 +623,7 @@ export namespace f {
 			members: NodeArray<ts.ClassElement> = node.members,
 			heritageClauses = node.heritageClauses,
 			typeParameters = node.typeParameters,
-			modifiers: ONodeArray<ts.ModifierLike> = ts.getModifiers(node),
+			modifiers: ONodeArray<ts.ModifierLike> = node.modifiers,
 		) {
 			return factory.updateClassDeclaration(node, modifiers, name, typeParameters, heritageClauses, members);
 		}
@@ -633,7 +633,7 @@ export namespace f {
 			parameters: NodeArray<ts.ParameterDeclaration>,
 			body: ts.Block,
 		) {
-			return factory.updateConstructorDeclaration(node, undefined, parameters, body);
+			return factory.updateConstructorDeclaration(node, node.modifiers, parameters, body);
 		}
 
 		export function parameterDeclaration(
@@ -641,7 +641,7 @@ export namespace f {
 			name = node.name,
 			type = node.type,
 			initializer = node.initializer,
-			modifiers: ONodeArray<ts.ModifierLike> = ts.getModifiers(node),
+			modifiers: ONodeArray<ts.ModifierLike> = node.modifiers,
 			isRest = node.dotDotDotToken !== undefined,
 			isOptional = node.questionToken !== undefined,
 		) {
@@ -662,14 +662,14 @@ export namespace f {
 			body = node.body,
 			parameters: ONodeArray<ts.ParameterDeclaration> = node.parameters,
 			typeParameters: ONodeArray<ts.TypeParameterDeclaration> = node.typeParameters,
-			modifiers: ONodeArray<ts.ModifierLike> = ts.getModifiers(node),
-			isOptional = node.asteriskToken !== undefined,
+			modifiers: ONodeArray<ts.ModifierLike> = node.modifiers,
+			isOptional = node.questionToken !== undefined,
 			type = node.type,
 		) {
 			return factory.updateMethodDeclaration(
 				node,
 				modifiers?.length === 0 ? undefined : modifiers,
-				undefined,
+				node.asteriskToken,
 				typeof name === "string" ? identifier(name) : name,
 				isOptional ? factory.createToken(ts.SyntaxKind.QuestionToken) : undefined,
 				typeParameters?.length === 0 ? undefined : typeParameters,
@@ -683,7 +683,7 @@ export namespace f {
 			node: ts.PropertyDeclaration,
 			initializer: ConvertableExpression | null | undefined = node.initializer,
 			name = node.name,
-			modifiers: ONodeArray<ts.ModifierLike> = ts.getModifiers(node),
+			modifiers: ONodeArray<ts.ModifierLike> = node.modifiers,
 			tokenType: "?" | "!" | undefined = node.questionToken ? "?" : node.exclamationToken ? "!" : undefined,
 			type = node.type,
 		) {
