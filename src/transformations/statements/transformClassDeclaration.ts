@@ -389,7 +389,7 @@ function updateAttributeGuards(
 	properties: ts.ObjectLiteralElementLike[],
 ) {
 	const type = state.typeChecker.getTypeAtLocation(node);
-	const baseComponent = state.symbolProvider.componentsFile!.get("BaseComponent");
+	const baseComponent = state.symbolProvider.baseComponentFile!.get("BaseComponent");
 
 	const property = type.getProperty("attributes");
 	if (!property || property.parent !== baseComponent) return;
@@ -432,7 +432,7 @@ function updateInstanceGuard(
 	properties: ts.ObjectLiteralElementLike[],
 ) {
 	const type = state.typeChecker.getTypeAtLocation(node);
-	const baseComponent = state.symbolProvider.componentsFile!.get("BaseComponent");
+	const baseComponent = state.symbolProvider.baseComponentFile!.get("BaseComponent");
 
 	const property = type.getProperty("instance");
 	if (!property || property.parent !== baseComponent) return;

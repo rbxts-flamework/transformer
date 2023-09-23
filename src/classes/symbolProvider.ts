@@ -19,6 +19,7 @@ export class SymbolProvider {
 	public moddingFile!: FileSymbol;
 	public flameworkFile!: FileSymbol;
 	public componentsFile?: FileSymbol;
+	public baseComponentFile?: FileSymbol;
 	public networkingFile?: FileSymbol;
 
 	public flamework!: NamespaceSymbol;
@@ -117,13 +118,15 @@ export class SymbolProvider {
 	private finalize() {
 		this.moddingFile = this.getFile("@flamework/core/modding");
 		this.flameworkFile = this.getFile("@flamework/core/flamework");
-		this.componentsFile = this.findFile("@flamework/components/index");
+		this.componentsFile = this.findFile("@flamework/components/components");
+		this.baseComponentFile = this.findFile("@flamework/components/baseComponent");
 		this.networkingFile = this.findFile("@flamework/networking/index");
 
 		if (
 			!this.flameworkFile.namespaces.has("Flamework") ||
 			(this.componentsFile && !this.componentsFile.classes.has("Components")) ||
-			(this.networkingFile && !this.networkingFile.namespaces.has("Networking"))
+			(this.networkingFile && !this.networkingFile.namespaces.has("Networking")) ||
+			(this.baseComponentFile && !this.baseComponentFile.classes.has("BaseComponent"))
 		) {
 			emitTypescriptMismatch(this.state, chalk.red("Failed to load! Symbols were not populated"));
 		}
