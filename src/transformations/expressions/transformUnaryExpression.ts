@@ -23,10 +23,15 @@ export function transformUnaryExpression(
 			if (!f.is.accessExpression(node.operand.expression))
 				Diagnostics.error(node.operand, "assignments not supported with direct access");
 
+			const attributeSetter = state.addFileImport(
+				node.getSourceFile(),
+				"@flamework/components/out/baseComponent",
+				"SYMBOL_ATTRIBUTE_SETTER",
+			);
 			const thisAccess = node.operand.expression.expression;
 			const args = [name, f.binary(node.operand, nonAssignmentOperator, 1)];
 
-			return f.call(f.field(thisAccess, "setAttribute"), f.is.postfixUnary(node) ? [...args, true] : args);
+			return f.call(f.field(thisAccess, attributeSetter, true), f.is.postfixUnary(node) ? [...args, true] : args);
 		}
 	}
 	return state.transform(node);

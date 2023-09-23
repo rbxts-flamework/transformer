@@ -34,13 +34,18 @@ export function transformBinaryExpression(state: TransformState, node: ts.Binary
 			if (!f.is.accessExpression(node.left.expression))
 				Diagnostics.error(node.left, "assignments not supported with direct access");
 
+			const attributeSetter = state.addFileImport(
+				node.getSourceFile(),
+				"@flamework/components/out/baseComponent",
+				"SYMBOL_ATTRIBUTE_SETTER",
+			);
 			const thisAccess = node.left.expression.expression;
 			const valueExpr =
 				nonAssignmentOperator === ts.SyntaxKind.EqualsToken
 					? node.right
 					: f.binary(node.left, nonAssignmentOperator, node.right);
 
-			return f.call(f.field(thisAccess, "setAttribute"), [name, valueExpr]);
+			return f.call(f.field(thisAccess, attributeSetter, true), [name, valueExpr]);
 		}
 	}
 	return state.transform(node);

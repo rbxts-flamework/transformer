@@ -13,8 +13,13 @@ export function transformDeleteExpression(state: TransformState, node: ts.Delete
 		if (!f.is.accessExpression(node.expression.expression))
 			Diagnostics.error(node.expression, "assignments not supported with direct access");
 
+		const attributeSetter = state.addFileImport(
+			node.getSourceFile(),
+			"@flamework/components/out/baseComponent",
+			"SYMBOL_ATTRIBUTE_SETTER",
+		);
 		const thisAccess = node.expression.expression.expression;
-		return f.call(f.field(thisAccess, "setAttribute"), [name, f.nil()]);
+		return f.call(f.field(thisAccess, attributeSetter, true), [name, f.nil()]);
 	}
 
 	return node;
