@@ -71,6 +71,7 @@ export namespace f {
 	export function field(
 		name: ts.Expression | string,
 		property: ts.Expression | ts.PropertyName | ts.MemberName | string,
+		expression = false,
 	): ts.ElementAccessExpression | ts.PropertyAccessExpression {
 		if (typeof property === "string") {
 			return factory.createElementAccessExpression(toExpression(name, identifier), string(property));
@@ -80,7 +81,7 @@ export namespace f {
 			return field(name, property.expression);
 		}
 
-		if (ts.isMemberName(property)) {
+		if (ts.isMemberName(property) && !expression) {
 			return factory.createPropertyAccessExpression(toExpression(name, identifier), property);
 		} else {
 			return factory.createElementAccessExpression(toExpression(name, identifier), toExpression(property));
