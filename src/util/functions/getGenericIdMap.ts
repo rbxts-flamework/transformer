@@ -21,10 +21,6 @@ const MODDING_SYMBOLS: SymbolRecord = {
 	getPropertyDecorators: { index: 1 },
 };
 
-const TESTING_SYMBOLS: SymbolRecord = {
-	patchDependency: { index: 1 },
-};
-
 const COMPONENTS_SYMBOLS: SymbolRecord = {
 	getComponent: { index: 1 },
 	getComponents: { index: 1 },
@@ -39,11 +35,9 @@ export function getGenericIdMap(state: TransformState) {
 
 	const map = new Map<ts.Symbol, GenericIdOptions>();
 	const modding = state.symbolProvider.moddingFile.getNamespace("Modding");
-	const testing = state.symbolProvider.flamework.getNamespace("Testing");
 	const components = state.symbolProvider.components;
 
 	addRecord(modding, MODDING_SYMBOLS);
-	addRecord(testing, TESTING_SYMBOLS);
 	if (components) addRecord(components, COMPONENTS_SYMBOLS);
 
 	return map;
