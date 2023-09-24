@@ -208,7 +208,9 @@ function getDecoratorFields(
 
 	const decorators = ts.canHaveDecorators(node) ? ts.getDecorators(node) : undefined;
 	if (decorators) {
-		for (const decorator of decorators) {
+		// Decorators apply last->first, so we iterate the decorators in reverse.
+		for (let i = decorators.length - 1; i >= 0; i--) {
+			const decorator = decorators[i];
 			const expr = decorator.expression;
 			const type = state.typeChecker.getTypeAtLocation(expr);
 			if (type.getProperty("_flamework_Decorator")) {
