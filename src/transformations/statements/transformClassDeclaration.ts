@@ -1,13 +1,13 @@
 import assert from "assert";
 import ts from "typescript";
-import { DiagnosticError, Diagnostics } from "../../classes/diagnostics";
+import { Diagnostics } from "../../classes/diagnostics";
 import { NodeMetadata } from "../../classes/nodeMetadata";
 import { TransformState } from "../../classes/transformState";
 import { f } from "../../util/factory";
 import { buildGuardFromType, buildGuardsFromType } from "../../util/functions/buildGuardFromType";
 import { getSuperClasses } from "../../util/functions/getSuperClasses";
 import { getNodeUid, getSymbolUid, getTypeUid } from "../../util/uid";
-import { captureDiagnostic, catchDiagnostic, withDiagnosticContext } from "../../util/diagnosticsUtils";
+import { withDiagnosticContext } from "../../util/diagnosticsUtils";
 
 export function transformClassDeclaration(state: TransformState, node: ts.ClassDeclaration) {
 	const symbol = state.getSymbol(node);
