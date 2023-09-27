@@ -61,7 +61,9 @@ export namespace f {
 	}
 
 	export function identifier(name: string, unique = false) {
-		return unique ? factory.createUniqueName(name) : factory.createIdentifier(name);
+		return unique
+			? factory.createUniqueName(name, ts.GeneratedIdentifierFlags.Optimistic)
+			: factory.createIdentifier(name);
 	}
 
 	export function nil() {

@@ -337,12 +337,6 @@ export class TransformState {
 		if (!importInfo) importInfos.push((importInfo = { path: importPath, entries: [] }));
 
 		let identifier = importInfo.entries.find((x) => x.name === name)?.identifier;
-		if (!identifier) {
-			if (!file.identifiers.has(name)) {
-				identifier = f.identifier(name);
-				importInfo.entries.push({ name, identifier });
-			}
-		}
 
 		if (!identifier) {
 			start: for (const statement of file.statements) {
@@ -368,7 +362,9 @@ export class TransformState {
 			}
 		}
 
-		if (!identifier) importInfo.entries.push({ name, identifier: (identifier = f.identifier(name, true)) });
+		if (!identifier) {
+			importInfo.entries.push({ name, identifier: (identifier = f.identifier(name, true)) });
+		}
 
 		return identifier;
 	}
