@@ -5,6 +5,8 @@ import { f } from "../util/factory";
 import { transformStatementList } from "./transformStatementList";
 
 export function transformFile(state: TransformState, file: ts.SourceFile): ts.SourceFile {
+	state.buildInfo.invalidateGlobs(state.getFileId(file));
+
 	const statements = transformStatementList(state, file.statements);
 
 	const hoisted = state.hoistedToTop.get(file);

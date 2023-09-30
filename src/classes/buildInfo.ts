@@ -22,6 +22,10 @@ interface BuildClass {
 
 interface FlameworkMetadata {
 	config?: FlameworkConfig;
+	globs?: {
+		paths?: Record<string, string[]>;
+		origins?: Record<string, string[]>;
+	};
 }
 
 export interface FlameworkBuildInfo {
@@ -229,6 +233,39 @@ export class BuildInfo {
 	setConfig(value: FlameworkConfig | undefined) {
 		this.buildInfo.metadata ??= {};
 		this.buildInfo.metadata.config = value;
+	}
+
+	/**
+	 * Adds a glob that will automatically be tracked between compiles.
+	 */
+	addGlob(glob: string, origin: string) {
+		this.buildInfo.metadata ??= {};
+		this.buildInfo.metadata.globs ??= {};
+		this.buildInfo.metadata.globs.paths ??= {};
+		this.buildInfo.metadata.globs.origins ??= {};
+		this.buildInfo.metadata.globs.paths[glob] = [];
+		this.buildInfo.metadata.globs.origins[origin] ??= [];
+		this.buildInfo.metadata.globs.origins[origin].push(glob);
+	}
+
+	/**
+	 * Removes all globs related to this file.
+	 */
+	invalidateGlobs(origin: string) {
+		const globs = this.buildInfo.metadata?.globs;
+		if (globs && globs.paths && globs.origins) {
+			delete globs.origins[origin];
+
+			outer: for (const path of Object.keys(globs.paths)) {
+				for (const origin of Object.values(globs.origins)) {
+					if (origin.includes(path)) {
+						break outer;
+					}
+				}
+
+				delete globs.paths[path];
+			}
+		}
 	}
 
 	/**

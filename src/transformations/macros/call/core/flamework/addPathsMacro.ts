@@ -34,6 +34,7 @@ export const FlameworkAddPathsMacro: CallMacro = {
 	transform(state, node) {
 		if (!state.rojoResolver) Diagnostics.error(node, "addPaths was used but Rojo could not be resolved");
 
+		const file = state.getSourceFile(node);
 		const importId = state.addFileImport(state.getSourceFile(node), "@flamework/core", "Flamework");
 		const convertedArguments: ts.Expression[] = [];
 		const args = [...node.arguments];
@@ -44,6 +45,15 @@ export const FlameworkAddPathsMacro: CallMacro = {
 			if (!f.is.string(arg)) Diagnostics.error(arg, `Expected string`);
 
 			if (glob.hasMagic(arg.text) || globType !== undefined) {
+				// For testing purposes.
+				const resolvedPath = !arg.text.startsWith(".")
+					? arg.text
+					: path
+							.relative(state.rootDirectory, path.resolve(path.dirname(file.fileName), arg.text))
+							.replace(/\\/g, "/");
+
+				state.buildInfo.addGlob(resolvedPath, state.getFileId(file));
+
 				const paths = glob.sync(`${arg.text}${globType === "file" ? "" : "/"}`, {
 					root: state.rootDirectory,
 					cwd: state.rootDirectory,

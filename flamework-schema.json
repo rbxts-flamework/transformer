@@ -18,6 +18,30 @@
 				}
 			}
 		},
+		"globs": {
+			"$id": "globs",
+			"type": "object",
+			"properties": {
+				"paths": {
+					"type": "object",
+					"additionalProperties": {
+						"type": "array",
+						"items": {
+							"type": "string"
+						}
+					}
+				},
+				"origins": {
+					"type": "object",
+					"additionalProperties": {
+						"type": "array",
+						"items": {
+							"type": "string"
+						}
+					}
+				}
+			}
+		},
 		"buildInfo": {
 			"$id": "buildInfo",
 			"required": ["version", "flameworkVersion", "identifiers"],
@@ -52,6 +76,9 @@
 					"properties": {
 						"config": {
 							"$ref": "config"
+						},
+						"globs": {
+							"$ref": "globs"
 						}
 					}
 				},

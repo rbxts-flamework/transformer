@@ -20,11 +20,12 @@ import { createPathTranslator } from "../util/functions/createPathTranslator";
 import { arePathsEqual } from "../util/functions/arePathsEqual";
 import { GenericIdOptions } from "../util/functions/getGenericIdMap";
 import { NodeMetadata } from "./nodeMetadata";
-import { RojoResolver } from "@roblox-ts/rojo-resolver";
+import { RbxPath, RojoResolver } from "@roblox-ts/rojo-resolver";
 import { PathTranslator } from "./pathTranslator";
 import { assert } from "../util/functions/assert";
 import { getSchemaErrors, validateSchema } from "../util/schema";
 import { shuffle } from "../util/functions/shuffle";
+import { glob } from "glob";
 
 const IGNORE_RBXTS_REGEX = /node_modules\/@rbxts\/(compiler-types|types)\/.*\.d\.ts$/;
 
@@ -202,6 +203,37 @@ export class TransformState {
 		return path.resolve(includePath || path.join(this.rootDirectory, "include"));
 	}
 
+	private updateGlobs(
+		globs: Record<string, string[]> | undefined,
+		luaOut: Map<string, Array<ReadonlyArray<string>>>,
+	) {
+		if (!globs) {
+			return;
+		}
+
+		for (const pathGlob in globs) {
+			const paths = glob.sync(pathGlob, {
+				root: this.rootDirectory,
+				cwd: this.rootDirectory,
+				nomount: true,
+				nocase: true,
+			});
+
+			globs[pathGlob] = paths;
+
+			const rbxPaths = new Array<RbxPath>();
+			for (const path of paths) {
+				const outputPath = this.pathTranslator.getOutputPath(path);
+				const rbxPath = this.rojoResolver?.getRbxPathFromFilePath(outputPath);
+				if (rbxPath) {
+					rbxPaths.push(rbxPath);
+				}
+			}
+
+			luaOut.set(this.obfuscateText(pathGlob, "addPaths"), rbxPaths);
+		}
+	}
+
 	constructor(
 		public program: ts.Program,
 		public context: ts.TransformationContext,
@@ -230,12 +262,16 @@ export class TransformState {
 		Cache.isInitialCompile = false;
 	}
 
+	getFileId(file: ts.SourceFile) {
+		return path.relative(this.rootDirectory, file.fileName).replace(/\\/g, "/");
+	}
+
 	saveArtifacts() {
-		this.buildInfo.save();
+		const start = new Date().getTime();
 
 		if (this.isGame) {
 			const writtenFiles = new Map<string, string>();
-			const files = ["config.json"];
+			const files = ["config.json", "globs.json"];
 
 			const packageConfig = this.buildInfo.getChildrenMetadata("config");
 			const config = this.buildInfo.getMetadata("config");
@@ -245,6 +281,28 @@ export class TransformState {
 					JSON.stringify({
 						game: config,
 						packages: Object.fromEntries(packageConfig),
+					}),
+				);
+			}
+
+			const packageGlobs = this.buildInfo.getChildrenMetadata("globs");
+			const globs = this.buildInfo.getMetadata("globs");
+			if (globs || packageGlobs.size > 0) {
+				const transformedGlobs = new Map<string, string[][]>();
+				this.updateGlobs(globs?.paths, transformedGlobs);
+
+				const transformedPackageGlobs = new Map<string, Record<string, string[][]>>();
+				for (const [pkg, packageGlob] of packageGlobs) {
+					const transformedGlobs = new Map<string, string[][]>();
+					this.updateGlobs(packageGlob?.paths, transformedGlobs);
+					transformedPackageGlobs.set(pkg, Object.fromEntries(transformedGlobs));
+				}
+
+				writtenFiles.set(
+					"globs.json",
+					JSON.stringify({
+						game: Object.fromEntries(transformedGlobs),
+						packages: Object.fromEntries(transformedPackageGlobs),
 					}),
 				);
 			}
@@ -270,6 +328,12 @@ export class TransformState {
 				fs.rmdirSync(metadataPath);
 			}
 		}
+
+		this.buildInfo.save();
+
+		process.stdout.write("\x1b[A\x1b[K");
+		Logger.infoIfVerbose(`Flamework artifacts saved in ${new Date().getTime() - start}ms`);
+		process.stdout.write("\n");
 	}
 
 	isUserMacro(symbol: ts.Symbol) {
