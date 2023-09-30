@@ -57,7 +57,6 @@ export const FlameworkAddPathsMacro: CallMacro = {
 				const paths = glob.sync(`${arg.text}${globType === "file" ? "" : "/"}`, {
 					root: state.rootDirectory,
 					cwd: state.rootDirectory,
-					nomount: true,
 					nocase: true,
 				});
 				for (const path of paths) {

@@ -25,7 +25,7 @@ import { PathTranslator } from "./pathTranslator";
 import { assert } from "../util/functions/assert";
 import { getSchemaErrors, validateSchema } from "../util/schema";
 import { shuffle } from "../util/functions/shuffle";
-import { glob } from "glob";
+import glob from "glob";
 
 const IGNORE_RBXTS_REGEX = /node_modules\/@rbxts\/(compiler-types|types)\/.*\.d\.ts$/;
 
@@ -215,7 +215,6 @@ export class TransformState {
 			const paths = glob.sync(pathGlob, {
 				root: this.rootDirectory,
 				cwd: this.rootDirectory,
-				nomount: true,
 				nocase: true,
 			});
 
