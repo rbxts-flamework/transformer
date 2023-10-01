@@ -5,14 +5,20 @@ import { TransformState } from "../classes/transformState";
 import { f } from "../util/factory";
 import { buildGuardFromType } from "../util/functions/buildGuardFromType";
 import { getTypeUid } from "../util/uid";
+import { NodeMetadata } from "../classes/nodeMetadata";
+import { buildPathGlobIntrinsic, buildPathIntrinsic } from "./macros/intrinsics/paths";
 
 export function transformUserMacro<T extends ts.NewExpression | ts.CallExpression>(
 	state: TransformState,
 	node: T,
 	signature: ts.Signature,
 ): T | undefined {
+	const file = state.getSourceFile(node);
+	const signatureDeclaration = signature.getDeclaration();
+	const nodeMetadata = new NodeMetadata(state, signatureDeclaration);
 	const args = node.arguments ? [...node.arguments] : [];
 	const parameters = new Map<number, UserMacro>();
+
 	let highestParameterIndex = -1;
 	for (let i = 0; i < getParameterCount(state, signature); i++) {
 		const targetParameter = state.typeChecker.getParameterType(signature, i).getNonNullableType();
@@ -32,21 +38,27 @@ export function transformUserMacro<T extends ts.NewExpression | ts.CallExpressio
 		}
 	}
 
+	let name: ts.Expression | undefined;
+
+	const rewrite = nodeMetadata.getSymbol("intrinsic-flamework-rewrite")?.[0];
+	if (rewrite && rewrite.parent) {
+		const namespace = state.addFileImport(file, "@flamework/core", rewrite.parent.name);
+		name = f.elementAccessExpression(namespace, rewrite.name);
+	}
+
+	if (!name) {
+		name = state.transformNode(node.expression);
+	}
+
+	if (nodeMetadata.isRequested("intrinsic-arg-shift")) {
+		args.shift();
+	}
+
 	if (highestParameterIndex >= 0) {
 		if (ts.isNewExpression(node)) {
-			return ts.factory.updateNewExpression(
-				node,
-				state.transformNode(node.expression),
-				node.typeArguments,
-				args,
-			) as T;
+			return ts.factory.updateNewExpression(node, name, node.typeArguments, args) as T;
 		} else if (ts.isCallExpression(node)) {
-			return ts.factory.updateCallExpression(
-				node,
-				state.transformNode(node.expression),
-				node.typeArguments,
-				args,
-			) as T;
+			return ts.factory.updateCallExpression(node, name, node.typeArguments, args) as T;
 		} else {
 			Diagnostics.error(node, `Macro could not be transformed.`);
 		}
@@ -90,7 +102,7 @@ function getLabels(state: TransformState, type: ts.Type): UserMacro {
 	};
 }
 
-function buildUserMacro(state: TransformState, node: ts.Node, macro: UserMacro): ts.Expression {
+function buildUserMacro(state: TransformState, node: ts.Expression, macro: UserMacro): ts.Expression {
 	const members = new Array<[string, ts.Expression]>();
 
 	if (macro.kind === "generic") {
@@ -150,6 +162,8 @@ function buildUserMacro(state: TransformState, node: ts.Node, macro: UserMacro):
 				? f.bool(value)
 				: f.nil(),
 		);
+	} else if (macro.kind === "intrinsic") {
+		return f.asNever(buildIntrinsicMacro(state, node, macro));
 	}
 
 	const modding = state.addFileImport(node.getSourceFile(), "@flamework/core", "Modding");
@@ -160,6 +174,28 @@ function buildUserMacro(state: TransformState, node: ts.Node, macro: UserMacro):
 	return f.call(f.propertyAccessExpression(modding, f.identifier("macro")), [
 		f.array(members.map(([name, value]) => f.array([f.string(name), value]))),
 	]);
+}
+
+function buildIntrinsicMacro(state: TransformState, node: ts.Expression, macro: UserMacro & { kind: "intrinsic" }) {
+	if (macro.id === "pathglob") {
+		const [pathType] = macro.inputs;
+		if (!pathType) {
+			throw new Error(`Invalid intrinsic usage`);
+		}
+
+		return buildPathGlobIntrinsic(state, node, pathType);
+	}
+
+	if (macro.id === "path") {
+		const [pathType] = macro.inputs;
+		if (!pathType) {
+			throw new Error(`Invalid intrinsic usage`);
+		}
+
+		return buildPathIntrinsic(state, node, pathType);
+	}
+
+	throw `Unexpected intrinsic ID '${macro.id}' with ${macro.inputs.length} inputs`;
 }
 
 function getMetadataFromType(metadataType: ts.Type) {
@@ -173,8 +209,8 @@ function getMetadataFromType(metadataType: ts.Type) {
 	return metadata;
 }
 
-function getUserMacroOfMany(state: TransformState, node: ts.Node, target: ts.Type): UserMacro | undefined {
-	const basicUserMacro = getBasicUserMacro(state, target);
+function getUserMacroOfMany(state: TransformState, node: ts.Expression, target: ts.Type): UserMacro | undefined {
+	const basicUserMacro = getBasicUserMacro(state, node, target);
 	if (basicUserMacro) {
 		return basicUserMacro;
 	}
@@ -251,7 +287,7 @@ function getUserMacroOfMany(state: TransformState, node: ts.Node, target: ts.Typ
 	Diagnostics.error(node, `Unknown type '${target.checker.typeToString(target)}' encountered`);
 }
 
-function getBasicUserMacro(state: TransformState, target: ts.Type): UserMacro | undefined {
+function getBasicUserMacro(state: TransformState, node: ts.Expression, target: ts.Type): UserMacro | undefined {
 	const genericMetadata = state.typeChecker.getTypeOfPropertyOfType(target, "_flamework_macro_generic");
 	if (genericMetadata) {
 		const targetType = state.typeChecker.getTypeOfPropertyOfType(genericMetadata, "0");
@@ -302,14 +338,29 @@ function getBasicUserMacro(state: TransformState, target: ts.Type): UserMacro | 
 	if (labelMetadata) {
 		return getLabels(state, labelMetadata);
 	}
+
+	const intrinsicMetadata = state.typeChecker.getTypeOfPropertyOfType(nonNullableTarget, "_flamework_intrinsic");
+	if (intrinsicMetadata) {
+		if (isTupleType(state, intrinsicMetadata) && intrinsicMetadata.typeArguments) {
+			const [id, ...inputs] = intrinsicMetadata.typeArguments;
+			if (!id || !id.isStringLiteral()) return;
+
+			return {
+				kind: "intrinsic",
+				id: id.value,
+				node,
+				inputs,
+			};
+		}
+	}
 }
 
-function getUserMacroOfType(state: TransformState, node: ts.Node, target: ts.Type): UserMacro | undefined {
+function getUserMacroOfType(state: TransformState, node: ts.Expression, target: ts.Type): UserMacro | undefined {
 	const manyMetadata = state.typeChecker.getTypeOfPropertyOfType(target, "_flamework_macro_many");
 	if (manyMetadata) {
 		return getUserMacroOfMany(state, node, manyMetadata);
 	} else {
-		return getBasicUserMacro(state, target);
+		return getBasicUserMacro(state, node, target);
 	}
 }
 
@@ -349,4 +400,10 @@ type UserMacro =
 	| {
 			kind: "literal";
 			value: string | number | boolean | undefined;
+	  }
+	| {
+			kind: "intrinsic";
+			node: ts.Expression;
+			id: string;
+			inputs: ts.Type[];
 	  };
