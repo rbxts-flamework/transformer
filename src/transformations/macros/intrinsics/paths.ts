@@ -5,8 +5,6 @@ import ts from "typescript";
 import { Diagnostics } from "../../../classes/diagnostics";
 
 export function buildPathGlobIntrinsic(state: TransformState, node: ts.Node, pathType: ts.Type) {
-	const file = state.getSourceFile(node);
-
 	if (!pathType.isStringLiteral()) {
 		Diagnostics.error(
 			node,
@@ -14,6 +12,7 @@ export function buildPathGlobIntrinsic(state: TransformState, node: ts.Node, pat
 		);
 	}
 
+	const file = state.getSourceFile(node);
 	const glob = pathType.value;
 	const absoluteGlob = glob.startsWith(".")
 		? path.relative(state.rootDirectory, path.resolve(path.dirname(file.fileName), glob)).replace(/\\/g, "/")
