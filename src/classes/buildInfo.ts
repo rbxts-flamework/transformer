@@ -227,6 +227,19 @@ export class BuildInfo {
 		return childrenMetadata;
 	}
 
+	getBuildInfoFromPrefix(prefix: string): BuildInfo | undefined {
+		for (const build of this.buildInfos) {
+			if (build.getIdentifierPrefix() === prefix) {
+				return build;
+			}
+
+			const child = build.getBuildInfoFromPrefix(prefix);
+			if (child) {
+				return child;
+			}
+		}
+	}
+
 	/**
 	 * Sets configuration which will be exposed at runtime.
 	 */
