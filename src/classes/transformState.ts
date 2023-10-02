@@ -330,9 +330,20 @@ export class TransformState {
 
 		this.buildInfo.save();
 
-		process.stdout.write("\x1b[A\x1b[K");
-		Logger.infoIfVerbose(`Flamework artifacts saved in ${new Date().getTime() - start}ms`);
-		process.stdout.write("\n");
+		if (Logger.verbose) {
+			// Watch mode includes an extra newline when compilation finishes,
+			// so we remove that newline before Flamework's message.
+			const watch = process.argv.includes("-w") || process.argv.includes("--watch");
+			if (watch) {
+				process.stdout.write("\x1b[A\x1b[K");
+			}
+
+			Logger.info(`Flamework artifacts finished in ${new Date().getTime() - start}ms`);
+
+			if (watch) {
+				process.stdout.write("\n");
+			}
+		}
 	}
 
 	isUserMacro(symbol: ts.Symbol) {
