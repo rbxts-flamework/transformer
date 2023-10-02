@@ -270,7 +270,7 @@ export class TransformState {
 				}
 			}
 
-			luaOut.set(this.obfuscateText(pathGlob, "addPaths"), rbxPaths);
+			luaOut.set(pkgInfo ? pathGlob : this.obfuscateText(pathGlob, "addPaths"), rbxPaths);
 		}
 	}
 
