@@ -259,7 +259,7 @@ export class BuildInfo {
 			outer: for (const path of Object.keys(globs.paths)) {
 				for (const origin of Object.values(globs.origins)) {
 					if (origin.includes(path)) {
-						break outer;
+						continue outer;
 					}
 				}
 
