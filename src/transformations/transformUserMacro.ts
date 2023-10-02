@@ -348,7 +348,6 @@ function getBasicUserMacro(state: TransformState, node: ts.Expression, target: t
 			return {
 				kind: "intrinsic",
 				id: id.value,
-				node,
 				inputs,
 			};
 		}
@@ -403,7 +402,6 @@ type UserMacro =
 	  }
 	| {
 			kind: "intrinsic";
-			node: ts.Expression;
 			id: string;
 			inputs: ts.Type[];
 	  };
