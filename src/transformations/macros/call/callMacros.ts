@@ -1,6 +1,5 @@
 import { CallMacro } from "../macro";
 import { DependencyMacro } from "./core/dependencyMacro";
-import { FlameworkAddPathsMacro } from "./core/flamework/addPathsMacro";
 import { NetworkingCreateEventMacro } from "./networking/createEventMacro";
 import { FlameworkCreateGuardMacro } from "./core/flamework/createGuardMacro";
 import { FlameworkHashMacro } from "./core/flamework/hashMacro";
@@ -19,7 +18,6 @@ export const CALL_MACROS = new Array<CallMacro>(
 	DependencyMacro,
 	FlameworkIdMacro,
 	FlameworkHashMacro,
-	FlameworkAddPathsMacro,
 	FlameworkImplementsMacro,
 	FlameworkCreateGuardMacro,
 );

@@ -20,11 +20,12 @@ import { createPathTranslator } from "../util/functions/createPathTranslator";
 import { arePathsEqual } from "../util/functions/arePathsEqual";
 import { GenericIdOptions } from "../util/functions/getGenericIdMap";
 import { NodeMetadata } from "./nodeMetadata";
-import { RojoResolver } from "@roblox-ts/rojo-resolver";
+import { RbxPath, RojoResolver } from "@roblox-ts/rojo-resolver";
 import { PathTranslator } from "./pathTranslator";
 import { assert } from "../util/functions/assert";
 import { getSchemaErrors, validateSchema } from "../util/schema";
 import { shuffle } from "../util/functions/shuffle";
+import glob from "glob";
 
 const IGNORE_RBXTS_REGEX = /node_modules\/@rbxts\/(compiler-types|types)\/.*\.d\.ts$/;
 
@@ -202,6 +203,77 @@ export class TransformState {
 		return path.resolve(includePath || path.join(this.rootDirectory, "include"));
 	}
 
+	/**
+	 * Since npm modules can be symlinked, TypeScript can resolve them to their real path (outside of the project directory.)
+	 *
+	 * This function attempts to convert the real path of *npm modules* back to their path inside the project directory.
+	 * This is required to have RojoResolver be able to resolve files.
+	 */
+	private toModulePath(filePath: string) {
+		// The module is under our root directory, so it's probably not symlinked.
+		if (isPathDescendantOf(filePath, this.rootDirectory)) {
+			return filePath;
+		}
+
+		const packageJsonPath = ts.findPackageJson(filePath, ts.sys as never);
+		if (!packageJsonPath) {
+			throw new Error(`Unable to convert '${filePath}' to module.`);
+		}
+
+		const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, { encoding: "utf8" }));
+		return path.join(
+			this.rootDirectory,
+			"node_modules",
+			packageJson.name,
+			path.relative(path.dirname(packageJsonPath), filePath),
+		);
+	}
+
+	private calculateGlobs(globs: Record<string, string[]> | undefined) {
+		if (!globs) {
+			return;
+		}
+
+		for (const pathGlob in globs) {
+			const paths = glob.sync(pathGlob, {
+				root: this.rootDirectory,
+				cwd: this.rootDirectory,
+				nocase: true,
+			});
+
+			globs[pathGlob] = paths.map((globPath) => {
+				const outputPath = this.pathTranslator.getOutputPath(globPath);
+				return path.relative(this.rootDirectory, outputPath).replace(/\\/g, "/");
+			});
+		}
+	}
+
+	private convertGlobs(
+		globs: Record<string, string[]> | undefined,
+		luaOut: Map<string, Array<ReadonlyArray<string>>>,
+		pkg?: string,
+	) {
+		if (!globs) {
+			return;
+		}
+
+		const pkgInfo = pkg ? this.buildInfo.getBuildInfoFromPrefix(pkg) : undefined;
+		const root = pkgInfo ? path.dirname(this.toModulePath(pkgInfo.buildInfoPath)) : this.rootDirectory;
+
+		for (const pathGlob in globs) {
+			const paths = globs[pathGlob];
+			const rbxPaths = new Array<RbxPath>();
+			for (const globPath of paths) {
+				const rbxPath = this.rojoResolver?.getRbxPathFromFilePath(path.join(root, globPath));
+				if (rbxPath) {
+					rbxPaths.push(rbxPath);
+				}
+			}
+
+			luaOut.set(pkgInfo ? pathGlob : this.obfuscateText(pathGlob, "addPaths"), rbxPaths);
+		}
+	}
+
 	constructor(
 		public program: ts.Program,
 		public context: ts.TransformationContext,
@@ -230,12 +302,18 @@ export class TransformState {
 		Cache.isInitialCompile = false;
 	}
 
+	getFileId(file: ts.SourceFile) {
+		return path.relative(this.rootDirectory, file.fileName).replace(/\\/g, "/");
+	}
+
 	saveArtifacts() {
-		this.buildInfo.save();
+		const start = new Date().getTime();
+
+		this.calculateGlobs(this.buildInfo.getMetadata("globs")?.paths);
 
 		if (this.isGame) {
 			const writtenFiles = new Map<string, string>();
-			const files = ["config.json"];
+			const files = ["config.json", "globs.json"];
 
 			const packageConfig = this.buildInfo.getChildrenMetadata("config");
 			const config = this.buildInfo.getMetadata("config");
@@ -245,6 +323,28 @@ export class TransformState {
 					JSON.stringify({
 						game: config,
 						packages: Object.fromEntries(packageConfig),
+					}),
+				);
+			}
+
+			const packageGlobs = this.buildInfo.getChildrenMetadata("globs");
+			const globs = this.buildInfo.getMetadata("globs");
+			if (globs || packageGlobs.size > 0) {
+				const transformedGlobs = new Map<string, string[][]>();
+				this.convertGlobs(globs?.paths, transformedGlobs);
+
+				const transformedPackageGlobs = new Map<string, Record<string, string[][]>>();
+				for (const [pkg, packageGlob] of packageGlobs) {
+					const transformedGlobs = new Map<string, string[][]>();
+					this.convertGlobs(packageGlob?.paths, transformedGlobs, pkg);
+					transformedPackageGlobs.set(pkg, Object.fromEntries(transformedGlobs));
+				}
+
+				writtenFiles.set(
+					"globs.json",
+					JSON.stringify({
+						game: Object.fromEntries(transformedGlobs),
+						packages: Object.fromEntries(transformedPackageGlobs),
 					}),
 				);
 			}
@@ -268,6 +368,23 @@ export class TransformState {
 
 			if (metadataExists && writtenFiles.size === 0) {
 				fs.rmdirSync(metadataPath);
+			}
+		}
+
+		this.buildInfo.save();
+
+		if (Logger.verbose) {
+			// Watch mode includes an extra newline when compilation finishes,
+			// so we remove that newline before Flamework's message.
+			const watch = process.argv.includes("-w") || process.argv.includes("--watch");
+			if (watch) {
+				process.stdout.write("\x1b[A\x1b[K");
+			}
+
+			Logger.info(`Flamework artifacts finished in ${new Date().getTime() - start}ms`);
+
+			if (watch) {
+				process.stdout.write("\n");
 			}
 		}
 	}
