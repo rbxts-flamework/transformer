@@ -90,9 +90,10 @@ function getLabels(state: TransformState, type: ts.Type): UserMacro {
 	}
 
 	for (const namedMember of declarations) {
+		// TypeScript 5.0+ allows nameless tuple elements, so we'll default to an empty string in that case.
 		names.push({
 			kind: "literal",
-			value: (namedMember.name as ts.Identifier).text,
+			value: namedMember ? (namedMember.name as ts.Identifier).text : "",
 		});
 	}
 
