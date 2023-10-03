@@ -572,11 +572,9 @@ export class TransformState {
 	}
 
 	transformNode<T extends ts.Node>(node: T): T {
-		return ts.visitNode(node, (newNode) => transformNode(this, newNode));
-	}
-
-	transformList<T extends ts.Node>(nodes: ts.NodeArray<T>): ts.NodeArray<T> {
-		return ts.visitNodes(nodes, (newNode) => transformNode(this, newNode));
+		// Technically this isn't guaranteed to return `T`, and TypeScript 5.0+ updated the signature to disallow this,
+		// but we don't care so we'll just cast it.
+		return ts.visitNode(node, (newNode) => transformNode(this, newNode)) as T;
 	}
 
 	private _shouldViewFile(file: ts.SourceFile) {
