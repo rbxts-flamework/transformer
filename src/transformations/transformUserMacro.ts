@@ -7,6 +7,7 @@ import { buildGuardFromType } from "../util/functions/buildGuardFromType";
 import { getTypeUid } from "../util/uid";
 import { NodeMetadata } from "../classes/nodeMetadata";
 import { buildPathGlobIntrinsic, buildPathIntrinsic } from "./macros/intrinsics/paths";
+import { validateParameterConstIntrinsic } from "./macros/intrinsics/parameters";
 
 export function transformUserMacro<T extends ts.NewExpression | ts.CallExpression>(
 	state: TransformState,
@@ -37,6 +38,8 @@ export function transformUserMacro<T extends ts.NewExpression | ts.CallExpressio
 			args[i] = args[i] ? state.transform(args[i]) : f.nil();
 		}
 	}
+
+	validateParameterConstIntrinsic(node, signature, nodeMetadata.getSymbol("intrinsic-const") ?? []);
 
 	let name: ts.Expression | undefined;
 
