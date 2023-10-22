@@ -22,7 +22,10 @@ function transformNetworkEvent(
 	const type = state.typeChecker.getTypeAtLocation(node.expression);
 	if (type.getProperty("_nominal_NetworkingObfuscationMarker") === undefined) return;
 
-	return f.elementAccessExpression(node.expression, state.obfuscateText(name, "remotes"));
+	return f.elementAccessExpression(
+		node.expression,
+		f.as(f.string(state.obfuscateText(name, "remotes")), f.literalType(f.string(name))),
+	);
 }
 
 function getAccessName(node: ts.PropertyAccessExpression | ts.ElementAccessExpression) {

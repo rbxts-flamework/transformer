@@ -8,7 +8,12 @@ import { getTypeUid } from "../util/uid";
 import { NodeMetadata } from "../classes/nodeMetadata";
 import { buildPathGlobIntrinsic, buildPathIntrinsic } from "./macros/intrinsics/paths";
 import { validateParameterConstIntrinsic } from "./macros/intrinsics/parameters";
-import { buildNetworkingMiddlewareIntrinsic } from "./macros/intrinsics/networking";
+import {
+	buildDeclarationUidIntrinsic,
+	transformNetworkingMiddlewareIntrinsic,
+	transformObfuscatedObjectIntrinsic,
+} from "./macros/intrinsics/networking";
+import { buildCallbackGuardsIntrinsic, buildGuardIntrinsic } from "./macros/intrinsics/guards";
 
 export function transformUserMacro<T extends ts.NewExpression | ts.CallExpression>(
 	state: TransformState,
@@ -42,7 +47,7 @@ export function transformUserMacro<T extends ts.NewExpression | ts.CallExpressio
 
 	const networkingMiddleware = nodeMetadata.getSymbol("intrinsic-middleware");
 	if (networkingMiddleware) {
-		buildNetworkingMiddlewareIntrinsic(state, signature, args, networkingMiddleware);
+		transformNetworkingMiddlewareIntrinsic(state, signature, args, networkingMiddleware);
 	}
 
 	validateParameterConstIntrinsic(node, signature, nodeMetadata.getSymbol("intrinsic-const") ?? []);
@@ -199,6 +204,44 @@ function buildIntrinsicMacro(state: TransformState, node: ts.Expression, macro: 
 		}
 
 		return buildPathIntrinsic(state, node, pathType);
+	}
+
+	if (macro.id === "obfuscate-obj") {
+		const [macroType, hashType] = macro.inputs;
+		if (!macroType || !hashType) {
+			throw new Error(`Invalid intrinsic usage`);
+		}
+
+		const innerMacro = getUserMacroOfMany(state, node, macroType);
+		if (!innerMacro) {
+			throw new Error(`Intrinisic obfuscate-obj received no inner macro.`);
+		}
+
+		transformObfuscatedObjectIntrinsic(state, innerMacro, hashType);
+
+		return buildUserMacro(state, node, innerMacro);
+	}
+
+	if (macro.id === "callback-guards") {
+		const [callbackType] = macro.inputs;
+		if (!callbackType) {
+			throw new Error(`Invalid intrinsic usage`);
+		}
+
+		return buildCallbackGuardsIntrinsic(state, node, callbackType);
+	}
+
+	if (macro.id === "declaration-uid") {
+		return buildDeclarationUidIntrinsic(state, node);
+	}
+
+	if (macro.id === "guard") {
+		const [type] = macro.inputs;
+		if (!type) {
+			throw new Error(`Invalid intrinsic usage`);
+		}
+
+		return buildGuardIntrinsic(state, node, type);
 	}
 
 	throw `Unexpected intrinsic ID '${macro.id}' with ${macro.inputs.length} inputs`;
@@ -388,7 +431,7 @@ function getParameterCount(state: TransformState, signature: ts.Signature) {
 	return length;
 }
 
-type UserMacro =
+export type UserMacro =
 	| {
 			kind: "generic";
 			target: ts.Type;

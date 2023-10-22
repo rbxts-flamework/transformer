@@ -323,6 +323,10 @@ export namespace f {
 		return factory.createTypeAliasDeclaration(undefined, name, typeParameters, type);
 	}
 
+	export function computedPropertyName(expression: ts.Expression) {
+		return factory.createComputedPropertyName(expression);
+	}
+
 	/// Type Nodes
 
 	export function functionType(
