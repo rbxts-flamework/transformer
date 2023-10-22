@@ -4,7 +4,6 @@ import { Diagnostics } from "../../../classes/diagnostics";
 import { f } from "../../../util/factory";
 import { buildGuardFromType } from "../../../util/functions/buildGuardFromType";
 import { isTupleType } from "../../../util/functions/isTupleType";
-import assert from "assert";
 
 /**
  * This function is used as a more optimized approach to `Modding.Generic<T, "guard">` as it does not generate an extra object.

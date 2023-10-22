@@ -224,12 +224,12 @@ function buildIntrinsicMacro(state: TransformState, node: ts.Expression, macro: 
 	}
 
 	if (macro.id === "tuple-guards") {
-		const [callbackType] = macro.inputs;
-		if (!callbackType) {
+		const [tupleType] = macro.inputs;
+		if (!tupleType) {
 			throw new Error(`Invalid intrinsic usage`);
 		}
 
-		return buildTupleGuardsIntrinsic(state, node, callbackType);
+		return buildTupleGuardsIntrinsic(state, node, tupleType);
 	}
 
 	if (macro.id === "declaration-uid") {
