@@ -1,6 +1,9 @@
 import ts from "typescript";
 import { DiagnosticError, Diagnostics } from "../../../classes/diagnostics";
 
+/**
+ * Validates that the specified parameters can be inspected at compile-time (up to a depth of 1)
+ */
 export function validateParameterConstIntrinsic(
 	node: ts.NewExpression | ts.CallExpression,
 	signature: ts.Signature,

@@ -6,6 +6,11 @@ import { Diagnostics } from "../../../classes/diagnostics";
 import { UserMacro } from "../../transformUserMacro";
 import { getNodeUid } from "../../../util/uid";
 
+/**
+ * Obfuscates the names of events provided in networking middleware.
+ *
+ * This should eventually be replaced with a generic object obfuscation API.
+ */
 export function transformNetworkingMiddlewareIntrinsic(
 	state: TransformState,
 	signature: ts.Signature,
@@ -59,6 +64,11 @@ export function transformNetworkingMiddlewareIntrinsic(
 	}
 }
 
+/**
+ * Obfuscates the keys of user macro metadata using the specified context.
+ *
+ * This should eventually be replaced with a generic object obfuscation API.
+ */
 export function transformObfuscatedObjectIntrinsic(state: TransformState, macro: UserMacro, hashType: ts.Type) {
 	const hashContext = hashType.isStringLiteral() ? hashType.value : undefined;
 
@@ -71,6 +81,11 @@ export function transformObfuscatedObjectIntrinsic(state: TransformState, macro:
 	}
 }
 
+/**
+ * Gets the ID of the macro's containing statement (e.g its variable.)
+ *
+ * This should eventually be replaced with a field in `Modding.Caller`
+ */
 export function buildDeclarationUidIntrinsic(state: TransformState, node: ts.Node) {
 	const parentDeclaration = node.parent;
 	if (!f.is.namedDeclaration(parentDeclaration)) {
