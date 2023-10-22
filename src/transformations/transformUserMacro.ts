@@ -13,7 +13,8 @@ import {
 	transformNetworkingMiddlewareIntrinsic,
 	transformObfuscatedObjectIntrinsic,
 } from "./macros/intrinsics/networking";
-import { buildCallbackGuardsIntrinsic, buildGuardIntrinsic } from "./macros/intrinsics/guards";
+import { buildGuardIntrinsic, buildTupleGuardsIntrinsic } from "./macros/intrinsics/guards";
+import { isTupleType } from "../util/functions/isTupleType";
 
 export function transformUserMacro<T extends ts.NewExpression | ts.CallExpression>(
 	state: TransformState,
@@ -222,13 +223,13 @@ function buildIntrinsicMacro(state: TransformState, node: ts.Expression, macro: 
 		return buildUserMacro(state, node, innerMacro);
 	}
 
-	if (macro.id === "callback-guards") {
+	if (macro.id === "tuple-guards") {
 		const [callbackType] = macro.inputs;
 		if (!callbackType) {
 			throw new Error(`Invalid intrinsic usage`);
 		}
 
-		return buildCallbackGuardsIntrinsic(state, node, callbackType);
+		return buildTupleGuardsIntrinsic(state, node, callbackType);
 	}
 
 	if (macro.id === "declaration-uid") {
@@ -410,10 +411,6 @@ function getUserMacroOfType(state: TransformState, node: ts.Expression, target: 
 	} else {
 		return getBasicUserMacro(state, node, target);
 	}
-}
-
-function isTupleType(state: TransformState, type: ts.Type): type is ts.TupleTypeReference {
-	return state.typeChecker.isTupleType(type);
 }
 
 function isObjectType(type: ts.Type): boolean {
