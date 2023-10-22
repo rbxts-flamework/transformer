@@ -10,12 +10,10 @@ export function buildNetworkingMiddlewareIntrinsic(
 	args: ts.Expression[],
 	parameters: ts.Symbol[],
 ) {
-	console.log("networking middleware", parameters.length);
 	for (const parameter of parameters) {
 		const parameterIndex = signature.parameters.findIndex((v) => v.valueDeclaration?.symbol === parameter);
 		const argument = args[parameterIndex];
 		if (!argument || !ts.isObjectLiteralExpression(argument)) {
-			console.log("no arg for", parameterIndex);
 			continue;
 		}
 
@@ -51,6 +49,5 @@ export function buildNetworkingMiddlewareIntrinsic(
 		});
 
 		args[parameterIndex] = f.object(transformedElements, true);
-		console.log("setting", parameterIndex, "to new arg");
 	}
 }
