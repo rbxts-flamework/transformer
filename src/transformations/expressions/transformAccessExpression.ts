@@ -20,11 +20,12 @@ function transformNetworkEvent(
 	if (!name) return;
 
 	const type = state.typeChecker.getTypeAtLocation(node.expression);
-	if (type.getProperty("_nominal_NetworkingObfuscationMarker") === undefined) return;
+	const hashType = state.typeChecker.getTypeOfPropertyOfType(type, "_flamework_key_obfuscation");
+	if (!hashType || !hashType.isStringLiteral()) return;
 
 	return f.elementAccessExpression(
 		node.expression,
-		f.as(f.string(state.obfuscateText(name, "remotes")), f.literalType(f.string(name))),
+		f.as(f.string(state.obfuscateText(name, hashType.value)), f.literalType(f.string(name))),
 	);
 }
 
