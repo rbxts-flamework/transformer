@@ -8,6 +8,7 @@ import { getTypeUid } from "../util/uid";
 import { NodeMetadata } from "../classes/nodeMetadata";
 import { buildPathGlobIntrinsic, buildPathIntrinsic } from "./macros/intrinsics/paths";
 import { validateParameterConstIntrinsic } from "./macros/intrinsics/parameters";
+import { buildNetworkingMiddlewareIntrinsic } from "./macros/intrinsics/networking";
 
 export function transformUserMacro<T extends ts.NewExpression | ts.CallExpression>(
 	state: TransformState,
@@ -37,6 +38,11 @@ export function transformUserMacro<T extends ts.NewExpression | ts.CallExpressio
 		} else {
 			args[i] = args[i] ? state.transform(args[i]) : f.nil();
 		}
+	}
+
+	const networkingMiddleware = nodeMetadata.getSymbol("intrinsic-middleware");
+	if (networkingMiddleware) {
+		buildNetworkingMiddlewareIntrinsic(state, signature, args, networkingMiddleware);
 	}
 
 	validateParameterConstIntrinsic(node, signature, nodeMetadata.getSymbol("intrinsic-const") ?? []);
