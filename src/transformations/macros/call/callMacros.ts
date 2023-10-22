@@ -1,6 +1,5 @@
 import { CallMacro } from "../macro";
 import { DependencyMacro } from "./core/dependencyMacro";
-import { NetworkingCreateEventMacro } from "./networking/createEventMacro";
 import { FlameworkCreateGuardMacro } from "./core/flamework/createGuardMacro";
 import { FlameworkHashMacro } from "./core/flamework/hashMacro";
 import { FlameworkIdMacro } from "./core/flamework/flameworkIdMacro";
@@ -11,7 +10,6 @@ import { GenericIdMacro } from "./core/genericIdMacro";
 export const CALL_MACROS = new Array<CallMacro>(
 	// @flamework/networking
 	NetworkingConnectMacro,
-	NetworkingCreateEventMacro,
 
 	// @flamework/core
 	GenericIdMacro,
