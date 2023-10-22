@@ -63,17 +63,13 @@ export function transformUserMacro<T extends ts.NewExpression | ts.CallExpressio
 		args.shift();
 	}
 
-	if (highestParameterIndex >= 0) {
-		if (ts.isNewExpression(node)) {
-			return ts.factory.updateNewExpression(node, name, node.typeArguments, args) as T;
-		} else if (ts.isCallExpression(node)) {
-			return ts.factory.updateCallExpression(node, name, node.typeArguments, args) as T;
-		} else {
-			Diagnostics.error(node, `Macro could not be transformed.`);
-		}
+	if (ts.isNewExpression(node)) {
+		return ts.factory.updateNewExpression(node, name, node.typeArguments, args) as T;
+	} else if (ts.isCallExpression(node)) {
+		return ts.factory.updateCallExpression(node, name, node.typeArguments, args) as T;
+	} else {
+		Diagnostics.error(node, `Macro could not be transformed.`);
 	}
-
-	return state.transform(node);
 }
 
 function isUndefinedArgument(argument: ts.Node | undefined) {
