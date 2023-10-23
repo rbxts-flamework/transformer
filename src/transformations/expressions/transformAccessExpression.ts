@@ -26,6 +26,7 @@ function transformNetworkEvent(
 	return f.elementAccessExpression(
 		node.expression,
 		f.as(f.string(state.obfuscateText(name, hashType.value)), f.literalType(f.string(name))),
+		node.questionDotToken,
 	);
 }
 
