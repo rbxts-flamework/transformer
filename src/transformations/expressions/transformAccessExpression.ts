@@ -7,20 +7,16 @@ export function transformAccessExpression(
 	state: TransformState,
 	node: ts.PropertyAccessExpression | ts.ElementAccessExpression,
 ) {
-	const name = getAccessName(node);
-	return transformNetworkEvent(state, node, name) ?? state.transform(node);
+	return transformNetworkEvent(state, node) ?? state.transform(node);
 }
 
-function transformNetworkEvent(
-	state: TransformState,
-	node: ts.PropertyAccessExpression | ts.ElementAccessExpression,
-	name?: string,
-) {
+function transformNetworkEvent(state: TransformState, node: ts.PropertyAccessExpression | ts.ElementAccessExpression) {
 	const type = state.typeChecker.getTypeAtLocation(node.expression);
 	const hashType = state.typeChecker.getTypeOfPropertyOfType(type, "_flamework_key_obfuscation");
 	if (!hashType || !hashType.isStringLiteral()) return;
 
 	// If the access expression doesn't have a name known at compile-time, we must throw an error.
+	const name = getAccessName(node);
 	if (name === undefined) {
 		Diagnostics.error(node, "This object has key obfuscation enabled and must be accessed directly.");
 	}
