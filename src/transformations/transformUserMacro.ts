@@ -271,6 +271,11 @@ function getUserMacroOfMany(state: TransformState, node: ts.Expression, target: 
 		return basicUserMacro;
 	}
 
+	const manyMetadata = state.typeChecker.getTypeOfPropertyOfType(target, "_flamework_macro_many");
+	if (manyMetadata) {
+		return getUserMacroOfMany(state, node, manyMetadata);
+	}
+
 	if (isTupleType(state, target)) {
 		const userMacros = new Array<UserMacro>();
 
