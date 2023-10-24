@@ -92,7 +92,6 @@ export class SymbolProvider {
 
 	private flameworkDir = this.resolveModuleDir("@flamework/core");
 	private componentsDir = this.resolveModuleDir("@flamework/components");
-	private networkingDir = this.resolveModuleDir("@flamework/networking");
 	private isFileInteresting(file: ts.SourceFile) {
 		if (this.state.config.$rbxpackmode$ && isPathDescendantOf(file.fileName, this.state.srcDir)) {
 			return true;
@@ -103,10 +102,6 @@ export class SymbolProvider {
 		}
 
 		if (this.componentsDir && isPathDescendantOf(file.fileName, this.componentsDir)) {
-			return true;
-		}
-
-		if (this.networkingDir && isPathDescendantOf(file.fileName, this.networkingDir)) {
 			return true;
 		}
 
