@@ -31,7 +31,7 @@ export function transformUserMacro(
 	let highestParameterIndex = -1;
 	for (let i = 0; i < getParameterCount(state, signature); i++) {
 		const targetParameter = state.typeChecker.getParameterType(signature, i).getNonNullableType();
-		const userMacro = getUserMacroOfType(state, node, targetParameter);
+		const userMacro = getUserMacroOfUnion(state, node, targetParameter);
 		if (userMacro) {
 			parameters.set(i, userMacro);
 			highestParameterIndex = Math.max(highestParameterIndex, i);
@@ -416,6 +416,25 @@ function getUserMacroOfType(state: TransformState, node: ts.Expression, target: 
 		return getUserMacroOfMany(state, node, manyMetadata);
 	} else {
 		return getBasicUserMacro(state, node, target);
+	}
+}
+
+/**
+ * This allows user macros to specify signatures that can accept non-metadata, like in Flamework components.
+ * Multiple modding types in a single parameter aren't supported, and Flamework will choose a random one.
+ *
+ * For example, `string | Modding.Generic<T, "id">`, will generate the ID for `T`, but also allow users to pass in one manually.
+ */
+function getUserMacroOfUnion(state: TransformState, node: ts.Expression, target: ts.Type) {
+	if (!target.isUnion()) {
+		return getUserMacroOfType(state, node, target);
+	}
+
+	for (const constituent of target.types) {
+		const macro = getUserMacroOfType(state, node, constituent);
+		if (macro) {
+			return macro;
+		}
 	}
 }
 
