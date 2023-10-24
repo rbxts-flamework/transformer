@@ -15,12 +15,13 @@ import {
 } from "./macros/intrinsics/networking";
 import { buildGuardIntrinsic, buildTupleGuardsIntrinsic } from "./macros/intrinsics/guards";
 import { isTupleType } from "../util/functions/isTupleType";
+import { inlineMacroIntrinsic } from "./macros/intrinsics/inlining";
 
-export function transformUserMacro<T extends ts.NewExpression | ts.CallExpression>(
+export function transformUserMacro(
 	state: TransformState,
-	node: T,
+	node: ts.NewExpression | ts.CallExpression,
 	signature: ts.Signature,
-): T | undefined {
+): ts.Expression | undefined {
 	const file = state.getSourceFile(node);
 	const signatureDeclaration = signature.getDeclaration();
 	const nodeMetadata = new NodeMetadata(state, signatureDeclaration);
@@ -51,6 +52,11 @@ export function transformUserMacro<T extends ts.NewExpression | ts.CallExpressio
 		transformNetworkingMiddlewareIntrinsic(state, signature, args, networkingMiddleware);
 	}
 
+	const inlineIntrinsic = nodeMetadata.getSymbol("intrinsic-inline");
+	if (inlineIntrinsic && inlineIntrinsic.length === 1) {
+		return inlineMacroIntrinsic(signature, args, inlineIntrinsic[0]);
+	}
+
 	validateParameterConstIntrinsic(node, signature, nodeMetadata.getSymbol("intrinsic-const") ?? []);
 
 	let name: ts.Expression | undefined;
@@ -70,9 +76,9 @@ export function transformUserMacro<T extends ts.NewExpression | ts.CallExpressio
 	}
 
 	if (ts.isNewExpression(node)) {
-		return ts.factory.updateNewExpression(node, name, node.typeArguments, args) as T;
+		return ts.factory.updateNewExpression(node, name, node.typeArguments, args);
 	} else if (ts.isCallExpression(node)) {
-		return ts.factory.updateCallExpression(node, name, node.typeArguments, args) as T;
+		return ts.factory.updateCallExpression(node, name, node.typeArguments, args);
 	} else {
 		Diagnostics.error(node, `Macro could not be transformed.`);
 	}
