@@ -148,8 +148,14 @@ export namespace f {
 		return factory.createBinaryExpression(toExpression(left), op, toExpression(right));
 	}
 
-	export function elementAccessExpression(expression: ConvertableExpression, index: ConvertableExpression) {
-		return factory.createElementAccessExpression(toExpression(expression), toExpression(index));
+	export function elementAccessExpression(
+		expression: ConvertableExpression,
+		index: ConvertableExpression,
+		questionToken?: ts.QuestionDotToken,
+	) {
+		return questionToken
+			? factory.createElementAccessChain(toExpression(expression), questionToken, toExpression(index))
+			: factory.createElementAccessExpression(toExpression(expression), toExpression(index));
 	}
 
 	export function propertyAccessExpression(expression: ConvertableExpression, name: ts.MemberName) {
@@ -321,6 +327,10 @@ export namespace f {
 		typeParameters?: ts.TypeParameterDeclaration[],
 	) {
 		return factory.createTypeAliasDeclaration(undefined, name, typeParameters, type);
+	}
+
+	export function computedPropertyName(expression: ts.Expression) {
+		return factory.createComputedPropertyName(expression);
 	}
 
 	/// Type Nodes

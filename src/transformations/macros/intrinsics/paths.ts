@@ -4,6 +4,11 @@ import { f } from "../../../util/factory";
 import ts from "typescript";
 import { Diagnostics } from "../../../classes/diagnostics";
 
+/**
+ * Generates a path glob.
+ *
+ * This generates a string as a reference to the runtime metadata exposed in core.
+ */
 export function buildPathGlobIntrinsic(state: TransformState, node: ts.Node, pathType: ts.Type) {
 	if (!pathType.isStringLiteral()) {
 		Diagnostics.error(
@@ -22,6 +27,9 @@ export function buildPathGlobIntrinsic(state: TransformState, node: ts.Node, pat
 	return f.string(state.obfuscateText(absoluteGlob, "addPaths"));
 }
 
+/**
+ * Generates a path as an array.
+ */
 export function buildPathIntrinsic(state: TransformState, node: ts.Node, pathType: ts.Type) {
 	if (!pathType.isStringLiteral()) {
 		Diagnostics.error(

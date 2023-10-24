@@ -20,11 +20,9 @@ export class SymbolProvider {
 	public flameworkFile!: FileSymbol;
 	public componentsFile?: FileSymbol;
 	public baseComponentFile?: FileSymbol;
-	public networkingFile?: FileSymbol;
 
 	public flamework!: NamespaceSymbol;
 	public components?: ClassSymbol;
-	public networking?: NamespaceSymbol;
 
 	constructor(public state: TransformState) {}
 
@@ -94,7 +92,6 @@ export class SymbolProvider {
 
 	private flameworkDir = this.resolveModuleDir("@flamework/core");
 	private componentsDir = this.resolveModuleDir("@flamework/components");
-	private networkingDir = this.resolveModuleDir("@flamework/networking");
 	private isFileInteresting(file: ts.SourceFile) {
 		if (this.state.config.$rbxpackmode$ && isPathDescendantOf(file.fileName, this.state.srcDir)) {
 			return true;
@@ -108,10 +105,6 @@ export class SymbolProvider {
 			return true;
 		}
 
-		if (this.networkingDir && isPathDescendantOf(file.fileName, this.networkingDir)) {
-			return true;
-		}
-
 		return false;
 	}
 
@@ -120,12 +113,10 @@ export class SymbolProvider {
 		this.flameworkFile = this.getFile("@flamework/core/flamework");
 		this.componentsFile = this.findFile("@flamework/components/components");
 		this.baseComponentFile = this.findFile("@flamework/components/baseComponent");
-		this.networkingFile = this.findFile("@flamework/networking/index");
 
 		if (
 			!this.flameworkFile.namespaces.has("Flamework") ||
 			(this.componentsFile && !this.componentsFile.classes.has("Components")) ||
-			(this.networkingFile && !this.networkingFile.namespaces.has("Networking")) ||
 			(this.baseComponentFile && !this.baseComponentFile.classes.has("BaseComponent"))
 		) {
 			emitTypescriptMismatch(this.state, chalk.red("Failed to load! Symbols were not populated"));
@@ -133,7 +124,6 @@ export class SymbolProvider {
 
 		this.flamework = this.flameworkFile.getNamespace("Flamework");
 		this.components = this.componentsFile?.getClass("Components");
-		this.networking = this.networkingFile?.getNamespace("Networking");
 
 		Logger.writeLineIfVerbose(`Registered symbols in ${this.registeredFiles} files`);
 	}

@@ -7,6 +7,14 @@ import { buildGuardFromType } from "../util/functions/buildGuardFromType";
 import { getTypeUid } from "../util/uid";
 import { NodeMetadata } from "../classes/nodeMetadata";
 import { buildPathGlobIntrinsic, buildPathIntrinsic } from "./macros/intrinsics/paths";
+import { validateParameterConstIntrinsic } from "./macros/intrinsics/parameters";
+import {
+	buildDeclarationUidIntrinsic,
+	transformNetworkingMiddlewareIntrinsic,
+	transformObfuscatedObjectIntrinsic,
+} from "./macros/intrinsics/networking";
+import { buildGuardIntrinsic, buildTupleGuardsIntrinsic } from "./macros/intrinsics/guards";
+import { isTupleType } from "../util/functions/isTupleType";
 
 export function transformUserMacro<T extends ts.NewExpression | ts.CallExpression>(
 	state: TransformState,
@@ -38,6 +46,13 @@ export function transformUserMacro<T extends ts.NewExpression | ts.CallExpressio
 		}
 	}
 
+	const networkingMiddleware = nodeMetadata.getSymbol("intrinsic-middleware");
+	if (networkingMiddleware) {
+		transformNetworkingMiddlewareIntrinsic(state, signature, args, networkingMiddleware);
+	}
+
+	validateParameterConstIntrinsic(node, signature, nodeMetadata.getSymbol("intrinsic-const") ?? []);
+
 	let name: ts.Expression | undefined;
 
 	const rewrite = nodeMetadata.getSymbol("intrinsic-flamework-rewrite")?.[0];
@@ -54,17 +69,13 @@ export function transformUserMacro<T extends ts.NewExpression | ts.CallExpressio
 		args.shift();
 	}
 
-	if (highestParameterIndex >= 0) {
-		if (ts.isNewExpression(node)) {
-			return ts.factory.updateNewExpression(node, name, node.typeArguments, args) as T;
-		} else if (ts.isCallExpression(node)) {
-			return ts.factory.updateCallExpression(node, name, node.typeArguments, args) as T;
-		} else {
-			Diagnostics.error(node, `Macro could not be transformed.`);
-		}
+	if (ts.isNewExpression(node)) {
+		return ts.factory.updateNewExpression(node, name, node.typeArguments, args) as T;
+	} else if (ts.isCallExpression(node)) {
+		return ts.factory.updateCallExpression(node, name, node.typeArguments, args) as T;
+	} else {
+		Diagnostics.error(node, `Macro could not be transformed.`);
 	}
-
-	return state.transform(node);
 }
 
 function isUndefinedArgument(argument: ts.Node | undefined) {
@@ -194,6 +205,44 @@ function buildIntrinsicMacro(state: TransformState, node: ts.Expression, macro: 
 		}
 
 		return buildPathIntrinsic(state, node, pathType);
+	}
+
+	if (macro.id === "obfuscate-obj") {
+		const [macroType, hashType] = macro.inputs;
+		if (!macroType || !hashType) {
+			throw new Error(`Invalid intrinsic usage`);
+		}
+
+		const innerMacro = getUserMacroOfMany(state, node, macroType);
+		if (!innerMacro) {
+			throw new Error(`Intrinisic obfuscate-obj received no inner macro.`);
+		}
+
+		transformObfuscatedObjectIntrinsic(state, innerMacro, hashType);
+
+		return buildUserMacro(state, node, innerMacro);
+	}
+
+	if (macro.id === "tuple-guards") {
+		const [tupleType] = macro.inputs;
+		if (!tupleType) {
+			throw new Error(`Invalid intrinsic usage`);
+		}
+
+		return buildTupleGuardsIntrinsic(state, node, tupleType);
+	}
+
+	if (macro.id === "declaration-uid") {
+		return buildDeclarationUidIntrinsic(state, node);
+	}
+
+	if (macro.id === "guard") {
+		const [type] = macro.inputs;
+		if (!type) {
+			throw new Error(`Invalid intrinsic usage`);
+		}
+
+		return buildGuardIntrinsic(state, node, type);
 	}
 
 	throw `Unexpected intrinsic ID '${macro.id}' with ${macro.inputs.length} inputs`;
@@ -364,10 +413,6 @@ function getUserMacroOfType(state: TransformState, node: ts.Expression, target: 
 	}
 }
 
-function isTupleType(state: TransformState, type: ts.Type): type is ts.TupleTypeReference {
-	return state.typeChecker.isTupleType(type);
-}
-
 function isObjectType(type: ts.Type): boolean {
 	return type.isIntersection() ? type.types.every(isObjectType) : (type.flags & ts.TypeFlags.Object) !== 0;
 }
@@ -383,7 +428,7 @@ function getParameterCount(state: TransformState, signature: ts.Signature) {
 	return length;
 }
 
-type UserMacro =
+export type UserMacro =
 	| {
 			kind: "generic";
 			target: ts.Type;
