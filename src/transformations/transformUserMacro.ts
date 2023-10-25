@@ -121,41 +121,15 @@ function getLabels(state: TransformState, type: ts.Type): UserMacro {
 }
 
 function buildUserMacro(state: TransformState, node: ts.Expression, macro: UserMacro): ts.Expression {
-	const members = new Array<[string, ts.Expression]>();
-
 	if (macro.kind === "generic") {
-		if (macro.metadata.has("id")) {
-			members.push(["id", f.string(getTypeUid(state, macro.target, node))]);
-		}
-
-		if (macro.metadata.has("guard")) {
-			members.push(["guard", buildGuardFromType(state, node, macro.target)]);
-		}
-
-		if (macro.metadata.has("text")) {
-			members.push(["text", f.string(state.typeChecker.typeToString(macro.target))]);
+		const metadata = getGenericMetadata(macro);
+		if (metadata) {
+			return f.asNever(metadata);
 		}
 	} else if (macro.kind === "caller") {
-		const lineAndCharacter = ts.getLineAndCharacterOfPosition(node.getSourceFile(), node.getStart());
-
-		if (macro.metadata.has("line")) {
-			members.push(["line", f.number(lineAndCharacter.line + 1)]);
-		}
-
-		if (macro.metadata.has("character")) {
-			members.push(["character", f.number(lineAndCharacter.character + 1)]);
-		}
-
-		if (macro.metadata.has("width")) {
-			members.push(["width", f.number(node.getWidth())]);
-		}
-
-		if (macro.metadata.has("uuid")) {
-			members.push(["uuid", f.string(randomUUID())]);
-		}
-
-		if (macro.metadata.has("text")) {
-			members.push(["text", f.string(node.getText())]);
+		const metadata = getCallerMetadata(macro);
+		if (metadata) {
+			return f.asNever(metadata);
 		}
 	} else if (macro.kind === "many") {
 		if (Array.isArray(macro.members)) {
@@ -184,14 +158,45 @@ function buildUserMacro(state: TransformState, node: ts.Expression, macro: UserM
 		return f.asNever(buildIntrinsicMacro(state, node, macro));
 	}
 
-	const modding = state.addFileImport(node.getSourceFile(), "@flamework/core", "Modding");
-	if (members.length === 1) {
-		return f.call(f.propertyAccessExpression(modding, f.identifier("macro")), [members[0][0], members[0][1]]);
+	return f.nil();
+
+	function getGenericMetadata(macro: UserMacro & { kind: "generic" }) {
+		if (macro.metadata === "id") {
+			return f.string(getTypeUid(state, macro.target, node));
+		}
+
+		if (macro.metadata === "guard") {
+			return buildGuardFromType(state, node, macro.target);
+		}
+
+		if (macro.metadata === "text") {
+			return f.string(state.typeChecker.typeToString(macro.target));
+		}
 	}
 
-	return f.call(f.propertyAccessExpression(modding, f.identifier("macro")), [
-		f.array(members.map(([name, value]) => f.array([f.string(name), value]))),
-	]);
+	function getCallerMetadata(macro: UserMacro & { kind: "caller" }) {
+		const lineAndCharacter = ts.getLineAndCharacterOfPosition(node.getSourceFile(), node.getStart());
+
+		if (macro.metadata === "line") {
+			return f.number(lineAndCharacter.line + 1);
+		}
+
+		if (macro.metadata === "character") {
+			return f.number(lineAndCharacter.character + 1);
+		}
+
+		if (macro.metadata === "width") {
+			return f.number(node.getWidth());
+		}
+
+		if (macro.metadata === "uuid") {
+			return f.string(randomUUID());
+		}
+
+		if (macro.metadata === "text") {
+			return f.string(node.getText());
+		}
+	}
 }
 
 function buildIntrinsicMacro(state: TransformState, node: ts.Expression, macro: UserMacro & { kind: "intrinsic" }) {
@@ -255,14 +260,9 @@ function buildIntrinsicMacro(state: TransformState, node: ts.Expression, macro: 
 }
 
 function getMetadataFromType(metadataType: ts.Type) {
-	const metadata = new Set<string>();
-
-	// Metadata is represented as { [k in Metadata]: k } to preserve assignability.
-	for (const property of metadataType.checker.getPropertiesOfType(metadataType)) {
-		metadata.add(property.name);
+	if (metadataType.isStringLiteral()) {
+		return metadataType.value;
 	}
-
-	return metadata;
 }
 
 function getUserMacroOfMany(state: TransformState, node: ts.Expression, target: ts.Type): UserMacro | undefined {
@@ -357,7 +357,12 @@ function getBasicUserMacro(state: TransformState, node: ts.Expression, target: t
 		if (!metadataType) return;
 
 		const metadata = getMetadataFromType(metadataType);
-		if (!metadata) return;
+		if (!metadata) {
+			Diagnostics.error(
+				node,
+				`Flamework encountered invalid metadata: '${state.typeChecker.typeToString(metadataType)}'`,
+			);
+		}
 
 		return {
 			kind: "generic",
@@ -462,11 +467,11 @@ export type UserMacro =
 	| {
 			kind: "generic";
 			target: ts.Type;
-			metadata: Set<string>;
+			metadata: string;
 	  }
 	| {
 			kind: "caller";
-			metadata: Set<string>;
+			metadata: string;
 	  }
 	| {
 			kind: "many";
