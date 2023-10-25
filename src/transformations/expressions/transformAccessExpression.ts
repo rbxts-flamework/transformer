@@ -18,6 +18,11 @@ function transformNetworkEvent(state: TransformState, node: ts.PropertyAccessExp
 	// If the access expression doesn't have a name known at compile-time, we must throw an error.
 	const name = getAccessName(node);
 	if (name === undefined) {
+		// This is prevents compiler errors when we're defining obfuscated objects, or accessing them internally.
+		if (f.is.elementAccessExpression(node) && f.is.asExpression(node.argumentExpression)) {
+			return;
+		}
+
 		Diagnostics.error(node, "This object has key obfuscation enabled and must be accessed directly.");
 	}
 
