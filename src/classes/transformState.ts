@@ -18,7 +18,6 @@ import { isCleanBuildDirectory } from "../util/functions/isCleanBuildDirectory";
 import { parseCommandLine } from "../util/functions/parseCommandLine";
 import { createPathTranslator } from "../util/functions/createPathTranslator";
 import { arePathsEqual } from "../util/functions/arePathsEqual";
-import { GenericIdOptions } from "../util/functions/getGenericIdMap";
 import { NodeMetadata } from "./nodeMetadata";
 import { RbxPath, RojoResolver } from "@roblox-ts/rojo-resolver";
 import { PathTranslator } from "./pathTranslator";
@@ -108,7 +107,6 @@ export class TransformState {
 	public isGame: boolean;
 
 	public callMacros = new Map<ts.Symbol, CallMacro>();
-	public genericIdMap?: Map<ts.Symbol, GenericIdOptions>;
 	public inferExpressions = new Map<ts.SourceFile, ts.Identifier>();
 	public isUserMacroCache = new Map<ts.Symbol, boolean>();
 
