@@ -16,13 +16,9 @@ const EXCLUDED_NAME_DIR = new Set(["src/", "lib/", "out/"]);
 export class SymbolProvider {
 	public fileSymbols = new Map<string, FileSymbol>();
 
-	public moddingFile!: FileSymbol;
 	public flameworkFile!: FileSymbol;
 	public componentsFile?: FileSymbol;
 	public baseComponentFile?: FileSymbol;
-
-	public flamework!: NamespaceSymbol;
-	public components?: ClassSymbol;
 
 	constructor(public state: TransformState) {}
 
@@ -109,7 +105,6 @@ export class SymbolProvider {
 	}
 
 	private finalize() {
-		this.moddingFile = this.getFile("@flamework/core/modding");
 		this.flameworkFile = this.getFile("@flamework/core/flamework");
 		this.componentsFile = this.findFile("@flamework/components/components");
 		this.baseComponentFile = this.findFile("@flamework/components/baseComponent");
@@ -121,9 +116,6 @@ export class SymbolProvider {
 		) {
 			emitTypescriptMismatch(this.state, chalk.red("Failed to load! Symbols were not populated"));
 		}
-
-		this.flamework = this.flameworkFile.getNamespace("Flamework");
-		this.components = this.componentsFile?.getClass("Components");
 
 		Logger.writeLineIfVerbose(`Registered symbols in ${this.registeredFiles} files`);
 	}
