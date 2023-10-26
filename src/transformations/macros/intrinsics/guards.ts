@@ -6,15 +6,6 @@ import { buildGuardFromType } from "../../../util/functions/buildGuardFromType";
 import { isArrayType, isTupleType } from "../../../util/functions/isTupleType";
 
 /**
- * This function is used as a more optimized approach to `Modding.Generic<T, "guard">` as it does not generate an extra object.
- *
- * Eventually, this function should be replaced with first-class support for this type of metadata.
- */
-export function buildGuardIntrinsic(state: TransformState, node: ts.Node, type: ts.Type) {
-	return buildGuardFromType(state, node, type, node.getSourceFile());
-}
-
-/**
  * This intrinsic generates an array of element guards along with a rest guard for a tuple type.
  *
  * Whilst this is possible in TypeScript, it requires either slightly complex types or additional metadata.

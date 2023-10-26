@@ -13,7 +13,7 @@ import {
 	transformNetworkingMiddlewareIntrinsic,
 	transformObfuscatedObjectIntrinsic,
 } from "./macros/intrinsics/networking";
-import { buildGuardIntrinsic, buildTupleGuardsIntrinsic } from "./macros/intrinsics/guards";
+import { buildTupleGuardsIntrinsic } from "./macros/intrinsics/guards";
 import { isTupleType } from "../util/functions/isTupleType";
 import { inlineMacroIntrinsic } from "./macros/intrinsics/inlining";
 import { buildSymbolIdIntrinsic } from "./macros/intrinsics/symbol";
@@ -246,15 +246,6 @@ function buildIntrinsicMacro(state: TransformState, node: ts.Expression, macro: 
 
 	if (macro.id === "declaration-uid") {
 		return buildDeclarationUidIntrinsic(state, node);
-	}
-
-	if (macro.id === "guard") {
-		const [type] = macro.inputs;
-		if (!type) {
-			throw new Error(`Invalid intrinsic usage`);
-		}
-
-		return buildGuardIntrinsic(state, node, type);
 	}
 
 	if (macro.id === "symbol-id") {
