@@ -60,8 +60,6 @@ export default function (program: ts.Program, config?: TransformerConfig) {
 
 					viewFile(state, file);
 				});
-
-				state.setupMacros();
 			}
 
 			if (state.hasErrors) return file;

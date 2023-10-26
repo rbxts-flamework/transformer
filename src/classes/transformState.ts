@@ -12,8 +12,6 @@ import { SymbolProvider } from "./symbolProvider";
 import { f } from "../util/factory";
 import { isPathDescendantOf } from "../util/functions/isPathDescendantOf";
 import { ClassInfo } from "../types/classes";
-import { CallMacro } from "../transformations/macros/macro";
-import { CALL_MACROS } from "../transformations/macros/call/callMacros";
 import { isCleanBuildDirectory } from "../util/functions/isCleanBuildDirectory";
 import { parseCommandLine } from "../util/functions/parseCommandLine";
 import { createPathTranslator } from "../util/functions/createPathTranslator";
@@ -106,7 +104,6 @@ export class TransformState {
 	public packageName: string;
 	public isGame: boolean;
 
-	public callMacros = new Map<ts.Symbol, CallMacro>();
 	public inferExpressions = new Map<ts.SourceFile, ts.Identifier>();
 	public isUserMacroCache = new Map<ts.Symbol, boolean>();
 
@@ -403,25 +400,6 @@ export class TransformState {
 
 		this.isUserMacroCache.set(symbol, false);
 		return false;
-	}
-
-	private areMacrosSetup = false;
-	setupMacros() {
-		if (this.areMacrosSetup) return;
-		this.areMacrosSetup = true;
-
-		for (const macro of CALL_MACROS) {
-			const symbols = macro.getSymbol(this);
-			if (Array.isArray(symbols)) {
-				for (const symbol of symbols) {
-					this.callMacros.set(symbol, macro);
-				}
-				macro._symbols = symbols;
-			} else {
-				this.callMacros.set(symbols, macro);
-				macro._symbols = [symbols];
-			}
-		}
 	}
 
 	public fileImports = new Map<string, ImportInfo[]>();
