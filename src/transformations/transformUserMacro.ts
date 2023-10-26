@@ -16,6 +16,7 @@ import {
 import { buildGuardIntrinsic, buildTupleGuardsIntrinsic } from "./macros/intrinsics/guards";
 import { isTupleType } from "../util/functions/isTupleType";
 import { inlineMacroIntrinsic } from "./macros/intrinsics/inlining";
+import { buildSymbolIdIntrinsic } from "./macros/intrinsics/symbol";
 
 export function transformUserMacro(
 	state: TransformState,
@@ -254,6 +255,15 @@ function buildIntrinsicMacro(state: TransformState, node: ts.Expression, macro: 
 		}
 
 		return buildGuardIntrinsic(state, node, type);
+	}
+
+	if (macro.id === "symbol-id") {
+		const [type] = macro.inputs;
+		if (!type || !f.is.call(node)) {
+			throw new Error(`Invalid intrinsic usage`);
+		}
+
+		return buildSymbolIdIntrinsic(state, node, type);
 	}
 
 	throw `Unexpected intrinsic ID '${macro.id}' with ${macro.inputs.length} inputs`;
