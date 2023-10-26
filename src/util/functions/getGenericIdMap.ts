@@ -12,15 +12,6 @@ export type GenericIdOptions = {
 	optional?: boolean;
 };
 
-const MODDING_SYMBOLS: SymbolRecord = {
-	getDecorator: { index: 2 },
-	getDecorators: { index: 0 },
-	onListenerAdded: { index: 1, optional: true },
-	onListenerRemoved: { index: 1, optional: true },
-	registerDependency: { index: 1 },
-	getPropertyDecorators: { index: 1 },
-};
-
 const COMPONENTS_SYMBOLS: SymbolRecord = {
 	getComponent: { index: 1 },
 	getComponents: { index: 1 },
@@ -34,10 +25,8 @@ export function getGenericIdMap(state: TransformState) {
 	if (state.genericIdMap) return state.genericIdMap;
 
 	const map = new Map<ts.Symbol, GenericIdOptions>();
-	const modding = state.symbolProvider.moddingFile.getNamespace("Modding");
 	const components = state.symbolProvider.components;
 
-	addRecord(modding, MODDING_SYMBOLS);
 	if (components) addRecord(components, COMPONENTS_SYMBOLS);
 
 	return map;
