@@ -11,7 +11,6 @@ import { validateSchema } from "../util/schema";
 interface BuildDecorator {
 	name: string;
 	internalId: string;
-	isFlameworkDecorator: boolean;
 }
 
 interface BuildClass {
