@@ -158,7 +158,8 @@ function transformDecoratorConfig(
 ) {
 	if (!f.is.call(expr)) return [];
 
-	if (symbol === state.symbolProvider.componentsFile?.get("Component")) {
+	const metadata = NodeMetadata.fromSymbol(state, symbol);
+	if (metadata && metadata.isRequested("intrinsic-component-decorator")) {
 		assert(!expr.arguments[0] || f.is.object(expr.arguments[0]));
 
 		const baseConfig = expr.arguments[0] ? expr.arguments[0] : f.object([]);
@@ -391,10 +392,12 @@ function updateAttributeGuards(
 	properties: ts.ObjectLiteralElementLike[],
 ) {
 	const type = state.typeChecker.getTypeAtLocation(node);
-	const baseComponent = state.symbolProvider.baseComponentFile!.get("BaseComponent");
 
 	const property = type.getProperty("attributes");
-	if (!property || property.parent !== baseComponent) return;
+	if (!property) return;
+
+	const attributesMeta = NodeMetadata.fromSymbol(state, property);
+	if (!attributesMeta || !attributesMeta.isRequested("intrinsic-component-attributes")) return;
 
 	const attributesType = state.typeChecker.getTypeOfSymbolAtLocation(property, node);
 	if (!attributesType) return;
@@ -434,10 +437,12 @@ function updateInstanceGuard(
 	properties: ts.ObjectLiteralElementLike[],
 ) {
 	const type = state.typeChecker.getTypeAtLocation(node);
-	const baseComponent = state.symbolProvider.baseComponentFile!.get("BaseComponent");
 
 	const property = type.getProperty("instance");
-	if (!property || property.parent !== baseComponent) return;
+	if (!property) return;
+
+	const attributesMeta = NodeMetadata.fromSymbol(state, property);
+	if (!attributesMeta || !attributesMeta.isRequested("intrinsic-component-instance")) return;
 
 	const superClass = getSuperClasses(state.typeChecker, node)[0];
 	if (!superClass) return;

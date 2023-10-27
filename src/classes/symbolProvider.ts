@@ -17,7 +17,6 @@ export class SymbolProvider {
 	public fileSymbols = new Map<string, FileSymbol>();
 
 	public flameworkFile!: FileSymbol;
-	public componentsFile?: FileSymbol;
 	public baseComponentFile?: FileSymbol;
 
 	constructor(public state: TransformState) {}
@@ -106,12 +105,10 @@ export class SymbolProvider {
 
 	private finalize() {
 		this.flameworkFile = this.getFile("@flamework/core/flamework");
-		this.componentsFile = this.findFile("@flamework/components/components");
 		this.baseComponentFile = this.findFile("@flamework/components/baseComponent");
 
 		if (
 			!this.flameworkFile.namespaces.has("Flamework") ||
-			(this.componentsFile && !this.componentsFile.classes.has("Components")) ||
 			(this.baseComponentFile && !this.baseComponentFile.classes.has("BaseComponent"))
 		) {
 			emitTypescriptMismatch(this.state, chalk.red("Failed to load! Symbols were not populated"));
