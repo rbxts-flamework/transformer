@@ -17,7 +17,6 @@ export class SymbolProvider {
 	public fileSymbols = new Map<string, FileSymbol>();
 
 	public flameworkFile!: FileSymbol;
-	public baseComponentFile?: FileSymbol;
 
 	constructor(public state: TransformState) {}
 
@@ -86,7 +85,6 @@ export class SymbolProvider {
 	}
 
 	private flameworkDir = this.resolveModuleDir("@flamework/core");
-	private componentsDir = this.resolveModuleDir("@flamework/components");
 	private isFileInteresting(file: ts.SourceFile) {
 		if (this.state.config.$rbxpackmode$ && isPathDescendantOf(file.fileName, this.state.srcDir)) {
 			return true;
@@ -96,21 +94,13 @@ export class SymbolProvider {
 			return true;
 		}
 
-		if (this.componentsDir && isPathDescendantOf(file.fileName, this.componentsDir)) {
-			return true;
-		}
-
 		return false;
 	}
 
 	private finalize() {
 		this.flameworkFile = this.getFile("@flamework/core/flamework");
-		this.baseComponentFile = this.findFile("@flamework/components/baseComponent");
 
-		if (
-			!this.flameworkFile.namespaces.has("Flamework") ||
-			(this.baseComponentFile && !this.baseComponentFile.classes.has("BaseComponent"))
-		) {
+		if (!this.flameworkFile.namespaces.has("Flamework")) {
 			emitTypescriptMismatch(this.state, chalk.red("Failed to load! Symbols were not populated"));
 		}
 
