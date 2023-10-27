@@ -54,7 +54,6 @@ export default function (program: ts.Program, config?: TransformerConfig) {
 			if (!hasCollectedInformation) {
 				hasCollectedInformation = true;
 
-				state.symbolProvider.registerInterestingFiles();
 				program.getSourceFiles().forEach((file) => {
 					if (file.isDeclarationFile && !state.shouldViewFile(file)) return;
 

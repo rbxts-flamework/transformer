@@ -8,7 +8,6 @@ import { Cache } from "../util/cache";
 import { getPackageJson } from "../util/functions/getPackageJson";
 import { BuildInfo } from "./buildInfo";
 import { Logger } from "./logger";
-import { SymbolProvider } from "./symbolProvider";
 import { f } from "../util/factory";
 import { isPathDescendantOf } from "../util/functions/isPathDescendantOf";
 import { ClassInfo } from "../types/classes";
@@ -92,7 +91,6 @@ export class TransformState {
 	public rootDirs = this.options.rootDirs ? this.options.rootDirs : [this.srcDir];
 	public typeChecker = this.program.getTypeChecker();
 
-	public symbolProvider = new SymbolProvider(this);
 	public classes = new Map<ts.Symbol, ClassInfo>();
 
 	public rojoResolver?: RojoResolver;
