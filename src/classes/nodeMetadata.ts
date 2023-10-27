@@ -3,6 +3,12 @@ import { f } from "../util/factory";
 import { TransformState } from "./transformState";
 
 export class NodeMetadata {
+	public static fromSymbol(state: TransformState, symbol: ts.Symbol) {
+		if (symbol.valueDeclaration) {
+			return new NodeMetadata(state, symbol.valueDeclaration);
+		}
+	}
+
 	private set = new Set<string>();
 	private symbols = new Map<string, Array<ts.Symbol>>();
 	private types = new Map<string, Array<ts.Type>>();

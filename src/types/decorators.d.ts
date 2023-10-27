@@ -7,7 +7,6 @@ interface BaseDecorator {
 	type: "Base";
 	name: string;
 	internalId: string;
-	isFlameworkDecorator: boolean;
 }
 
 interface DecoratorWithNodes extends BaseDecorator {

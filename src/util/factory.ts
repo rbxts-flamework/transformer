@@ -500,6 +500,10 @@ export namespace f {
 			return node !== undefined && ts.isSuperKeyword(node);
 		}
 
+		export function asExpression(node?: ts.Node): node is ts.AsExpression {
+			return node !== undefined && ts.isAsExpression(node);
+		}
+
 		/// Statements
 		/// Declarations
 

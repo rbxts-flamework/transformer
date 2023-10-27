@@ -13,14 +13,16 @@ import {
 	transformNetworkingMiddlewareIntrinsic,
 	transformObfuscatedObjectIntrinsic,
 } from "./macros/intrinsics/networking";
-import { buildGuardIntrinsic, buildTupleGuardsIntrinsic } from "./macros/intrinsics/guards";
+import { buildTupleGuardsIntrinsic } from "./macros/intrinsics/guards";
 import { isTupleType } from "../util/functions/isTupleType";
+import { inlineMacroIntrinsic } from "./macros/intrinsics/inlining";
+import { buildSymbolIdIntrinsic } from "./macros/intrinsics/symbol";
 
-export function transformUserMacro<T extends ts.NewExpression | ts.CallExpression>(
+export function transformUserMacro(
 	state: TransformState,
-	node: T,
+	node: ts.NewExpression | ts.CallExpression,
 	signature: ts.Signature,
-): T | undefined {
+): ts.Expression | undefined {
 	const file = state.getSourceFile(node);
 	const signatureDeclaration = signature.getDeclaration();
 	const nodeMetadata = new NodeMetadata(state, signatureDeclaration);
@@ -30,7 +32,7 @@ export function transformUserMacro<T extends ts.NewExpression | ts.CallExpressio
 	let highestParameterIndex = -1;
 	for (let i = 0; i < getParameterCount(state, signature); i++) {
 		const targetParameter = state.typeChecker.getParameterType(signature, i).getNonNullableType();
-		const userMacro = getUserMacroOfType(state, node, targetParameter);
+		const userMacro = getUserMacroOfUnion(state, node, targetParameter);
 		if (userMacro) {
 			parameters.set(i, userMacro);
 			highestParameterIndex = Math.max(highestParameterIndex, i);
@@ -49,6 +51,11 @@ export function transformUserMacro<T extends ts.NewExpression | ts.CallExpressio
 	const networkingMiddleware = nodeMetadata.getSymbol("intrinsic-middleware");
 	if (networkingMiddleware) {
 		transformNetworkingMiddlewareIntrinsic(state, signature, args, networkingMiddleware);
+	}
+
+	const inlineIntrinsic = nodeMetadata.getSymbol("intrinsic-inline");
+	if (inlineIntrinsic && inlineIntrinsic.length === 1) {
+		return inlineMacroIntrinsic(signature, args, inlineIntrinsic[0]);
 	}
 
 	validateParameterConstIntrinsic(node, signature, nodeMetadata.getSymbol("intrinsic-const") ?? []);
@@ -70,9 +77,9 @@ export function transformUserMacro<T extends ts.NewExpression | ts.CallExpressio
 	}
 
 	if (ts.isNewExpression(node)) {
-		return ts.factory.updateNewExpression(node, name, node.typeArguments, args) as T;
+		return ts.factory.updateNewExpression(node, name, node.typeArguments, args);
 	} else if (ts.isCallExpression(node)) {
-		return ts.factory.updateCallExpression(node, name, node.typeArguments, args) as T;
+		return ts.factory.updateCallExpression(node, name, node.typeArguments, args);
 	} else {
 		Diagnostics.error(node, `Macro could not be transformed.`);
 	}
@@ -115,41 +122,15 @@ function getLabels(state: TransformState, type: ts.Type): UserMacro {
 }
 
 function buildUserMacro(state: TransformState, node: ts.Expression, macro: UserMacro): ts.Expression {
-	const members = new Array<[string, ts.Expression]>();
-
 	if (macro.kind === "generic") {
-		if (macro.metadata.has("id")) {
-			members.push(["id", f.string(getTypeUid(state, macro.target, node))]);
-		}
-
-		if (macro.metadata.has("guard")) {
-			members.push(["guard", buildGuardFromType(state, node, macro.target)]);
-		}
-
-		if (macro.metadata.has("text")) {
-			members.push(["text", f.string(state.typeChecker.typeToString(macro.target))]);
+		const metadata = getGenericMetadata(macro);
+		if (metadata) {
+			return f.asNever(metadata);
 		}
 	} else if (macro.kind === "caller") {
-		const lineAndCharacter = ts.getLineAndCharacterOfPosition(node.getSourceFile(), node.getStart());
-
-		if (macro.metadata.has("line")) {
-			members.push(["line", f.number(lineAndCharacter.line + 1)]);
-		}
-
-		if (macro.metadata.has("character")) {
-			members.push(["character", f.number(lineAndCharacter.character + 1)]);
-		}
-
-		if (macro.metadata.has("width")) {
-			members.push(["width", f.number(node.getWidth())]);
-		}
-
-		if (macro.metadata.has("uuid")) {
-			members.push(["uuid", f.string(randomUUID())]);
-		}
-
-		if (macro.metadata.has("text")) {
-			members.push(["text", f.string(node.getText())]);
+		const metadata = getCallerMetadata(macro);
+		if (metadata) {
+			return f.asNever(metadata);
 		}
 	} else if (macro.kind === "many") {
 		if (Array.isArray(macro.members)) {
@@ -178,14 +159,45 @@ function buildUserMacro(state: TransformState, node: ts.Expression, macro: UserM
 		return f.asNever(buildIntrinsicMacro(state, node, macro));
 	}
 
-	const modding = state.addFileImport(node.getSourceFile(), "@flamework/core", "Modding");
-	if (members.length === 1) {
-		return f.call(f.propertyAccessExpression(modding, f.identifier("macro")), [members[0][0], members[0][1]]);
+	return f.nil();
+
+	function getGenericMetadata(macro: UserMacro & { kind: "generic" }) {
+		if (macro.metadata === "id") {
+			return f.string(getTypeUid(state, macro.target, node));
+		}
+
+		if (macro.metadata === "guard") {
+			return buildGuardFromType(state, node, macro.target);
+		}
+
+		if (macro.metadata === "text") {
+			return f.string(state.typeChecker.typeToString(macro.target));
+		}
 	}
 
-	return f.call(f.propertyAccessExpression(modding, f.identifier("macro")), [
-		f.array(members.map(([name, value]) => f.array([f.string(name), value]))),
-	]);
+	function getCallerMetadata(macro: UserMacro & { kind: "caller" }) {
+		const lineAndCharacter = ts.getLineAndCharacterOfPosition(node.getSourceFile(), node.getStart());
+
+		if (macro.metadata === "line") {
+			return f.number(lineAndCharacter.line + 1);
+		}
+
+		if (macro.metadata === "character") {
+			return f.number(lineAndCharacter.character + 1);
+		}
+
+		if (macro.metadata === "width") {
+			return f.number(node.getWidth());
+		}
+
+		if (macro.metadata === "uuid") {
+			return f.string(randomUUID());
+		}
+
+		if (macro.metadata === "text") {
+			return f.string(node.getText());
+		}
+	}
 }
 
 function buildIntrinsicMacro(state: TransformState, node: ts.Expression, macro: UserMacro & { kind: "intrinsic" }) {
@@ -236,33 +248,33 @@ function buildIntrinsicMacro(state: TransformState, node: ts.Expression, macro: 
 		return buildDeclarationUidIntrinsic(state, node);
 	}
 
-	if (macro.id === "guard") {
+	if (macro.id === "symbol-id") {
 		const [type] = macro.inputs;
-		if (!type) {
+		if (!type || !f.is.call(node)) {
 			throw new Error(`Invalid intrinsic usage`);
 		}
 
-		return buildGuardIntrinsic(state, node, type);
+		return buildSymbolIdIntrinsic(state, node, type);
 	}
 
 	throw `Unexpected intrinsic ID '${macro.id}' with ${macro.inputs.length} inputs`;
 }
 
 function getMetadataFromType(metadataType: ts.Type) {
-	const metadata = new Set<string>();
-
-	// Metadata is represented as { [k in Metadata]: k } to preserve assignability.
-	for (const property of metadataType.checker.getPropertiesOfType(metadataType)) {
-		metadata.add(property.name);
+	if (metadataType.isStringLiteral()) {
+		return metadataType.value;
 	}
-
-	return metadata;
 }
 
 function getUserMacroOfMany(state: TransformState, node: ts.Expression, target: ts.Type): UserMacro | undefined {
 	const basicUserMacro = getBasicUserMacro(state, node, target);
 	if (basicUserMacro) {
 		return basicUserMacro;
+	}
+
+	const manyMetadata = state.typeChecker.getTypeOfPropertyOfType(target, "_flamework_macro_many");
+	if (manyMetadata) {
+		return getUserMacroOfMany(state, node, manyMetadata);
 	}
 
 	if (isTupleType(state, target)) {
@@ -346,7 +358,12 @@ function getBasicUserMacro(state: TransformState, node: ts.Expression, target: t
 		if (!metadataType) return;
 
 		const metadata = getMetadataFromType(metadataType);
-		if (!metadata) return;
+		if (!metadata) {
+			Diagnostics.error(
+				node,
+				`Flamework encountered invalid metadata: '${state.typeChecker.typeToString(metadataType)}'`,
+			);
+		}
 
 		return {
 			kind: "generic",
@@ -413,6 +430,25 @@ function getUserMacroOfType(state: TransformState, node: ts.Expression, target: 
 	}
 }
 
+/**
+ * This allows user macros to specify signatures that can accept non-metadata, like in Flamework components.
+ * Multiple modding types in a single parameter aren't supported, and Flamework will choose a random one.
+ *
+ * For example, `string | Modding.Generic<T, "id">`, will generate the ID for `T`, but also allow users to pass in one manually.
+ */
+function getUserMacroOfUnion(state: TransformState, node: ts.Expression, target: ts.Type) {
+	if (!target.isUnion()) {
+		return getUserMacroOfType(state, node, target);
+	}
+
+	for (const constituent of target.types) {
+		const macro = getUserMacroOfType(state, node, constituent);
+		if (macro) {
+			return macro;
+		}
+	}
+}
+
 function isObjectType(type: ts.Type): boolean {
 	return type.isIntersection() ? type.types.every(isObjectType) : (type.flags & ts.TypeFlags.Object) !== 0;
 }
@@ -432,11 +468,11 @@ export type UserMacro =
 	| {
 			kind: "generic";
 			target: ts.Type;
-			metadata: Set<string>;
+			metadata: string;
 	  }
 	| {
 			kind: "caller";
-			metadata: Set<string>;
+			metadata: string;
 	  }
 	| {
 			kind: "many";

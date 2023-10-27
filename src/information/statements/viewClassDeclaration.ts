@@ -7,8 +7,6 @@ import { f } from "../../util/factory";
 import { getNodeUid, getSymbolUid } from "../../util/uid";
 
 export function viewClassDeclaration(state: TransformState, node: ts.ClassDeclaration) {
-	const { symbolProvider } = state;
-
 	const symbol = state.getSymbol(node);
 	const internalId = getNodeUid(state, node);
 
@@ -18,11 +16,6 @@ export function viewClassDeclaration(state: TransformState, node: ts.ClassDeclar
 	const isFlameworkClass =
 		nodeDecorators !== undefined || node.members.some((v) => ts.canHaveDecorators(v) && ts.getDecorators(v));
 	const decorators: DecoratorInfo[] = [];
-	const flameworkDecorators = new Set([
-		symbolProvider.flameworkFile.get("Service"),
-		symbolProvider.flameworkFile.get("Controller"),
-		symbolProvider.componentsFile?.get("Component"),
-	]);
 
 	if (nodeDecorators) {
 		for (const decorator of nodeDecorators) {
@@ -34,14 +27,12 @@ export function viewClassDeclaration(state: TransformState, node: ts.ClassDeclar
 			if (!f.is.identifier(decorator.expression.expression)) continue;
 
 			const name = decorator.expression.expression.text;
-			const isFlameworkDecorator = flameworkDecorators.has(symbol);
 
 			decorators.push({
 				type: "WithNodes",
 				declaration: symbol.declarations[0],
 				arguments: decorator.expression.arguments.map((x) => x),
 				internalId: getSymbolUid(state, symbol, decorator.expression.expression),
-				isFlameworkDecorator,
 				name,
 				symbol,
 			});
@@ -67,7 +58,6 @@ export function viewClassDeclaration(state: TransformState, node: ts.ClassDeclar
 				internalId,
 				decorators: decorators.map((x) => ({
 					internalId: x.internalId,
-					isFlameworkDecorator: x.isFlameworkDecorator,
 					name: x.name,
 				})),
 			});
@@ -84,7 +74,6 @@ export function viewClassDeclaration(state: TransformState, node: ts.ClassDeclar
 					type: "Base",
 					internalId: x.internalId,
 					name: x.name,
-					isFlameworkDecorator: x.isFlameworkDecorator,
 				})),
 			});
 		}

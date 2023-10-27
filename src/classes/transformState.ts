@@ -8,17 +8,13 @@ import { Cache } from "../util/cache";
 import { getPackageJson } from "../util/functions/getPackageJson";
 import { BuildInfo } from "./buildInfo";
 import { Logger } from "./logger";
-import { SymbolProvider } from "./symbolProvider";
 import { f } from "../util/factory";
 import { isPathDescendantOf } from "../util/functions/isPathDescendantOf";
 import { ClassInfo } from "../types/classes";
-import { CallMacro } from "../transformations/macros/macro";
-import { CALL_MACROS } from "../transformations/macros/call/callMacros";
 import { isCleanBuildDirectory } from "../util/functions/isCleanBuildDirectory";
 import { parseCommandLine } from "../util/functions/parseCommandLine";
 import { createPathTranslator } from "../util/functions/createPathTranslator";
 import { arePathsEqual } from "../util/functions/arePathsEqual";
-import { GenericIdOptions } from "../util/functions/getGenericIdMap";
 import { NodeMetadata } from "./nodeMetadata";
 import { RbxPath, RojoResolver } from "@roblox-ts/rojo-resolver";
 import { PathTranslator } from "./pathTranslator";
@@ -95,7 +91,6 @@ export class TransformState {
 	public rootDirs = this.options.rootDirs ? this.options.rootDirs : [this.srcDir];
 	public typeChecker = this.program.getTypeChecker();
 
-	public symbolProvider = new SymbolProvider(this);
 	public classes = new Map<ts.Symbol, ClassInfo>();
 
 	public rojoResolver?: RojoResolver;
@@ -107,9 +102,6 @@ export class TransformState {
 	public packageName: string;
 	public isGame: boolean;
 
-	public callMacros = new Map<ts.Symbol, CallMacro>();
-	public genericIdMap?: Map<ts.Symbol, GenericIdOptions>;
-	public inferExpressions = new Map<ts.SourceFile, ts.Identifier>();
 	public isUserMacroCache = new Map<ts.Symbol, boolean>();
 
 	private setupBuildInfo() {
@@ -407,44 +399,17 @@ export class TransformState {
 		return false;
 	}
 
-	private areMacrosSetup = false;
-	setupMacros() {
-		if (this.areMacrosSetup) return;
-		this.areMacrosSetup = true;
-
-		for (const macro of CALL_MACROS) {
-			const symbols = macro.getSymbol(this);
-			if (Array.isArray(symbols)) {
-				for (const symbol of symbols) {
-					this.callMacros.set(symbol, macro);
-				}
-				macro._symbols = symbols;
-			} else {
-				this.callMacros.set(symbols, macro);
-				macro._symbols = [symbols];
-			}
-		}
-	}
-
 	public fileImports = new Map<string, ImportInfo[]>();
 	addFileImport(file: ts.SourceFile, importPath: string, name: string): ts.Identifier {
-		const symbolProvider = this.symbolProvider;
-
-		if (importPath === "@flamework/core") {
-			if (
-				(file === symbolProvider.flameworkFile.file ||
-					this.getSymbol(file) === symbolProvider.flameworkFile.fileSymbol) &&
-				name === "Flamework"
-			) {
+		// Flamework itself uses features which require imports, this will rewrite those imports to be valid inside the Flamework package.
+		if (importPath === "@flamework/core" && this.packageName === "@flamework/core" && this.config.$rbxpackmode$) {
+			const fileName = path.basename(file.fileName);
+			if (fileName === "flamework.ts" && name === "Flamework") {
 				return f.identifier("Flamework");
 			}
 
-			const flameworkDir = path.dirname(symbolProvider.flameworkFile.file.fileName);
-			const modulePath = path.join(flameworkDir, name === "Reflect" ? "reflect" : "flamework");
-
-			if (isPathDescendantOf(file.fileName, flameworkDir)) {
-				importPath = "./" + path.relative(path.dirname(file.fileName), modulePath) || ".";
-			}
+			const modulePath = path.join(this.rootDirectory, "src", name === "Reflect" ? "reflect" : "flamework");
+			importPath = "./" + path.relative(path.dirname(file.fileName), modulePath) || ".";
 		}
 
 		let importInfos = this.fileImports.get(file.fileName);
@@ -536,14 +501,6 @@ export class TransformState {
 		}
 
 		this.context.addDiagnostic(diag);
-	}
-
-	public hoistedToTop = new Map<ts.SourceFile, ts.Statement[]>();
-	hoistToTop(file: ts.SourceFile, node: ts.Statement) {
-		let hoisted = this.hoistedToTop.get(file);
-		if (!hoisted) this.hoistedToTop.set(file, (hoisted = []));
-
-		hoisted.push(node);
 	}
 
 	private prereqStack = new Array<Array<ts.Statement>>();

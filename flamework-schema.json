@@ -103,9 +103,6 @@
 										},
 										"internalId": {
 											"type": "string"
-										},
-										"isFlameworkDecorator": {
-											"type": "boolean"
 										}
 									}
 								}
