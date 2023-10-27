@@ -102,7 +102,6 @@ export class TransformState {
 	public packageName: string;
 	public isGame: boolean;
 
-	public inferExpressions = new Map<ts.SourceFile, ts.Identifier>();
 	public isUserMacroCache = new Map<ts.Symbol, boolean>();
 
 	private setupBuildInfo() {
@@ -502,14 +501,6 @@ export class TransformState {
 		}
 
 		this.context.addDiagnostic(diag);
-	}
-
-	public hoistedToTop = new Map<ts.SourceFile, ts.Statement[]>();
-	hoistToTop(file: ts.SourceFile, node: ts.Statement) {
-		let hoisted = this.hoistedToTop.get(file);
-		if (!hoisted) this.hoistedToTop.set(file, (hoisted = []));
-
-		hoisted.push(node);
 	}
 
 	private prereqStack = new Array<Array<ts.Statement>>();

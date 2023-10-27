@@ -9,11 +9,6 @@ export function transformFile(state: TransformState, file: ts.SourceFile): ts.So
 
 	const statements = transformStatementList(state, file.statements);
 
-	const hoisted = state.hoistedToTop.get(file);
-	if (hoisted) {
-		statements.unshift(...hoisted);
-	}
-
 	const imports = state.fileImports.get(file.fileName);
 	if (imports) {
 		statements.unshift(
