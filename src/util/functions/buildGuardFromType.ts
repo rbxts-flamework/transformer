@@ -42,6 +42,7 @@ const rbxTypes = [
 	"CFrame",
 	"Axes",
 	"Faces",
+	"Font",
 	"Instance",
 	"Ray",
 	"Random",
