@@ -87,8 +87,8 @@ export function transformObfuscatedObjectIntrinsic(state: TransformState, macro:
  * This should eventually be replaced with a field in `Modding.Caller`
  */
 export function buildDeclarationUidIntrinsic(state: TransformState, node: ts.Node) {
-	const parentDeclaration = node.parent;
-	if (!f.is.namedDeclaration(parentDeclaration)) {
+	const parentDeclaration = ts.findAncestor(node, f.is.namedDeclaration);
+	if (!parentDeclaration) {
 		Diagnostics.error(node, "This function must be under a variable declaration.");
 	}
 
