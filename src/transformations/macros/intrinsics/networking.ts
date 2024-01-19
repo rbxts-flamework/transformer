@@ -72,16 +72,21 @@ export function transformNetworkingMiddlewareIntrinsic(
 export function transformObfuscatedObjectIntrinsic(state: TransformState, macro: UserMacro, hashType: ts.Type) {
 	const hashContext = hashType.isStringLiteral() ? hashType.value : undefined;
 
-	if (macro.kind === "many") {
-		if (macro.members instanceof Map) {
-			// Maps are order-preserving, so we can shuffle the map directly.
-			for (const [key, inner] of state.obfuscateArray([...macro.members])) {
-				macro.members.delete(key);
-				macro.members.set(state.obfuscateText(key, hashContext), inner);
-			}
-		} else {
-			macro.members = state.obfuscateArray(macro.members) as UserMacro[];
+	if (macro.kind === "many" && macro.members instanceof Map) {
+		// Maps are order-preserving, so we can shuffle the map directly.
+		for (const [key, inner] of state.obfuscateArray([...macro.members])) {
+			macro.members.delete(key);
+			macro.members.set(state.obfuscateText(key, hashContext), inner);
 		}
+	}
+}
+
+/**
+ * Shuffles the order of an array to prevent const-matching.
+ */
+export function transformShuffleArrayIntrinsic(state: TransformState, macro: UserMacro) {
+	if (macro.kind === "many" && Array.isArray(macro.members)) {
+		macro.members = state.obfuscateArray(macro.members) as UserMacro[];
 	}
 }
 

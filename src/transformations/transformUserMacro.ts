@@ -12,6 +12,7 @@ import {
 	buildDeclarationUidIntrinsic,
 	transformNetworkingMiddlewareIntrinsic,
 	transformObfuscatedObjectIntrinsic,
+	transformShuffleArrayIntrinsic,
 } from "./macros/intrinsics/networking";
 import { buildTupleGuardsIntrinsic } from "./macros/intrinsics/guards";
 import { isTupleType } from "../util/functions/isTupleType";
@@ -236,6 +237,22 @@ function buildIntrinsicMacro(state: TransformState, node: ts.Expression, macro: 
 		}
 
 		transformObfuscatedObjectIntrinsic(state, innerMacro, hashType);
+
+		return buildUserMacro(state, node, innerMacro);
+	}
+
+	if (macro.id === "shuffle-array") {
+		const [macroType] = macro.inputs;
+		if (!macroType) {
+			throw new Error(`Invalid intrinsic usage`);
+		}
+
+		const innerMacro = getUserMacroOfMany(state, node, macroType);
+		if (!innerMacro) {
+			throw new Error(`Intrinisic obfuscate-obj received no inner macro.`);
+		}
+
+		transformShuffleArrayIntrinsic(state, innerMacro);
 
 		return buildUserMacro(state, node, innerMacro);
 	}
