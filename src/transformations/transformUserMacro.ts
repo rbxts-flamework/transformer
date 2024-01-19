@@ -121,7 +121,7 @@ function getLabels(state: TransformState, type: ts.Type): UserMacro {
 	};
 }
 
-function buildUserMacro(state: TransformState, node: ts.Expression, macro: UserMacro): ts.Expression {
+function buildUserMacro(state: TransformState, node: ts.Expression, macro: UserMacro): ts.AsExpression {
 	if (macro.kind === "generic") {
 		const metadata = getGenericMetadata(macro);
 		if (metadata) {
@@ -139,7 +139,12 @@ function buildUserMacro(state: TransformState, node: ts.Expression, macro: UserM
 			const elements = new Array<ts.ObjectLiteralElementLike>();
 
 			for (const [name, userMacro] of macro.members) {
-				elements.push(f.propertyAssignmentDeclaration(f.string(name), buildUserMacro(state, node, userMacro)));
+				const expression = buildUserMacro(state, node, userMacro);
+				if (f.is.nil(expression.expression)) {
+					continue;
+				}
+
+				elements.push(f.propertyAssignmentDeclaration(f.string(name), expression));
 			}
 
 			return f.asNever(f.object(elements, false));
@@ -159,7 +164,7 @@ function buildUserMacro(state: TransformState, node: ts.Expression, macro: UserM
 		return f.asNever(buildIntrinsicMacro(state, node, macro));
 	}
 
-	return f.nil();
+	return f.asNever(f.nil());
 
 	function getGenericMetadata(macro: UserMacro & { kind: "generic" }) {
 		if (macro.metadata === "id") {
