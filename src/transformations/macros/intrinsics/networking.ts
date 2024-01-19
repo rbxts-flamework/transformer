@@ -82,6 +82,15 @@ export function transformObfuscatedObjectIntrinsic(state: TransformState, macro:
 }
 
 /**
+ * Shuffles the order of an array to prevent const-matching.
+ */
+export function transformShuffleArrayIntrinsic(state: TransformState, macro: UserMacro) {
+	if (macro.kind === "many" && Array.isArray(macro.members)) {
+		macro.members = state.obfuscateArray(macro.members) as UserMacro[];
+	}
+}
+
+/**
  * Gets the ID of the macro's containing statement (e.g its variable.)
  *
  * This should eventually be replaced with a field in `Modding.Caller`
