@@ -24,6 +24,27 @@ export function transformNetworkingMiddlewareIntrinsic(
 			continue;
 		}
 
+		const obfuscateMiddleware = (middlewareObject: ts.ObjectLiteralExpression): ts.ObjectLiteralExpression => {
+			return f.update.object(
+				middlewareObject,
+				state.obfuscateArray(middlewareObject.properties).map((prop) => {
+					if (f.is.propertyAssignmentDeclaration(prop) && "text" in prop.name) {
+						return f.update.propertyAssignmentDeclaration(
+							prop,
+							f.is.object(prop.initializer) ? obfuscateMiddleware(prop.initializer) : prop.initializer,
+							f.computedPropertyName(
+								f.as(
+									f.string(state.obfuscateText(prop.name.text, "remotes")),
+									f.literalType(f.string(prop.name.text)),
+								),
+							),
+						);
+					}
+					return prop;
+				}),
+			);
+		};
+
 		const transformedElements = argument.properties.map((element) => {
 			const name = element.name && ts.getPropertyNameForPropertyNameNode(element.name);
 			if (name !== "middleware") {
@@ -37,27 +58,7 @@ export function transformNetworkingMiddlewareIntrinsic(
 				Diagnostics.error(value, "Networking middleware must be an object.");
 			}
 
-			return f.update.propertyAssignmentDeclaration(
-				element,
-				f.update.object(
-					value,
-					state.obfuscateArray(value.properties).map((prop) => {
-						if (f.is.propertyAssignmentDeclaration(prop) && "text" in prop.name) {
-							return f.update.propertyAssignmentDeclaration(
-								prop,
-								prop.initializer,
-								f.computedPropertyName(
-									f.as(
-										f.string(state.obfuscateText(prop.name.text, "remotes")),
-										f.literalType(f.string(prop.name.text)),
-									),
-								),
-							);
-						}
-						return prop;
-					}),
-				),
-			);
+			return f.update.propertyAssignmentDeclaration(element, obfuscateMiddleware(value));
 		});
 
 		args[parameterIndex] = f.object(transformedElements, true);
