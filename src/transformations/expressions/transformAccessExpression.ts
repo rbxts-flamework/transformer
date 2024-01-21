@@ -27,7 +27,7 @@ function transformNetworkEvent(state: TransformState, node: ts.PropertyAccessExp
 	}
 
 	return f.elementAccessExpression(
-		node.expression,
+		state.transformNode(node.expression),
 		f.as(f.string(state.obfuscateText(name, hashType.value)), f.literalType(f.string(name))),
 		node.questionDotToken,
 	);
