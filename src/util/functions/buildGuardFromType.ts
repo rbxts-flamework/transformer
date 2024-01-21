@@ -25,7 +25,10 @@ export function buildGuardsFromType(
 	return generator.buildGuardsFromType(type, isInterfaceType);
 }
 
-const rbxTypes = [
+// This compiles directly to `t.typeof` for any userdata that `t` does not have an alias for, or users might not have yet.
+const RBX_TYPES_NEW = ["buffer"];
+
+const RBX_TYPES = [
 	"UDim",
 	"UDim2",
 	"BrickColor",
@@ -57,7 +60,10 @@ const rbxTypes = [
 	"EnumItem",
 	"RBXScriptSignal",
 	"RBXScriptConnection",
+	"FloatCurveKey",
+	"OverlapParams",
 	"thread",
+	...RBX_TYPES_NEW,
 ] as const;
 
 /**
@@ -247,12 +253,18 @@ export function createGuardGenerator(state: TransformState, file: ts.SourceFile,
 			return f.field("Promise", "is");
 		}
 
-		for (const guard of rbxTypes) {
+		for (const guard of RBX_TYPES) {
 			const guardSymbol = typeChecker.resolveName(guard, undefined, ts.SymbolFlags.Type, false);
-			if (!guardSymbol) fail(`Could not find symbol for ${guard}`);
+			if (!guardSymbol && !RBX_TYPES_NEW.includes(guard)) {
+				fail(`Could not find symbol for ${guard}`);
+			}
 
 			if (symbol === guardSymbol) {
-				return f.field(tId, guard);
+				if (RBX_TYPES_NEW.includes(guard)) {
+					return f.call(f.field(tId, "typeof"), [guard]);
+				} else {
+					return f.field(tId, guard);
+				}
 			}
 		}
 
