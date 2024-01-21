@@ -254,13 +254,14 @@ export function createGuardGenerator(state: TransformState, file: ts.SourceFile,
 		}
 
 		for (const guard of RBX_TYPES) {
+			const isNewType = RBX_TYPES_NEW.includes(guard);
 			const guardSymbol = typeChecker.resolveName(guard, undefined, ts.SymbolFlags.Type, false);
-			if (!guardSymbol && !RBX_TYPES_NEW.includes(guard)) {
+			if (!guardSymbol && !isNewType) {
 				fail(`Could not find symbol for ${guard}`);
 			}
 
 			if (symbol === guardSymbol) {
-				if (RBX_TYPES_NEW.includes(guard)) {
+				if (isNewType) {
 					return f.call(f.field(tId, "typeof"), [guard]);
 				} else {
 					return f.field(tId, guard);
