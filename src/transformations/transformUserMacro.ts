@@ -32,6 +32,11 @@ export function transformUserMacro(
 
 	let highestParameterIndex = -1;
 	for (let i = 0; i < getParameterCount(state, signature); i++) {
+		// This parameter is passed explicitly, so we don't need to evaluate it.
+		if (!isUndefinedArgument(args[i])) {
+			continue;
+		}
+
 		const targetParameter = state.typeChecker.getParameterType(signature, i).getNonNullableType();
 		const userMacro = getUserMacroOfUnion(state, node, targetParameter);
 		if (userMacro) {
@@ -42,7 +47,7 @@ export function transformUserMacro(
 
 	for (let i = 0; i <= highestParameterIndex; i++) {
 		const userMacro = parameters.get(i);
-		if (userMacro && isUndefinedArgument(args[i])) {
+		if (userMacro) {
 			args[i] = buildUserMacro(state, node, userMacro);
 		} else {
 			args[i] = args[i] ? state.transform(args[i]) : f.nil();
