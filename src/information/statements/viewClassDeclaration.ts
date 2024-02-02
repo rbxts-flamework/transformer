@@ -5,6 +5,7 @@ import { ClassInfo } from "../../types/classes";
 import { DecoratorInfo } from "../../types/decorators";
 import { f } from "../../util/factory";
 import { getNodeUid, getSymbolUid } from "../../util/uid";
+import { NodeMetadata } from "../../classes/nodeMetadata";
 
 export function viewClassDeclaration(state: TransformState, node: ts.ClassDeclaration) {
 	const symbol = state.getSymbol(node);
@@ -13,8 +14,6 @@ export function viewClassDeclaration(state: TransformState, node: ts.ClassDeclar
 	if (!node.name || !symbol) return;
 
 	const nodeDecorators = ts.canHaveDecorators(node) ? ts.getDecorators(node) : undefined;
-	const isFlameworkClass =
-		nodeDecorators !== undefined || node.members.some((v) => ts.canHaveDecorators(v) && ts.getDecorators(v));
 	const decorators: DecoratorInfo[] = [];
 
 	if (nodeDecorators) {
@@ -39,7 +38,7 @@ export function viewClassDeclaration(state: TransformState, node: ts.ClassDeclar
 		}
 	}
 
-	if (isFlameworkClass) {
+	if (isFlameworkClass(state, node)) {
 		const classInfo: ClassInfo = {
 			name: node.name.text,
 			internalId,
@@ -77,5 +76,31 @@ export function viewClassDeclaration(state: TransformState, node: ts.ClassDeclar
 				})),
 			});
 		}
+	}
+}
+
+function isFlameworkClass(state: TransformState, declaration: ts.ClassDeclaration) {
+	const metadata = new NodeMetadata(state, declaration);
+	if (metadata.isRequested("reflect")) {
+		return true;
+	}
+
+	const nodeDecorators = ts.canHaveDecorators(declaration) ? ts.getDecorators(declaration) : undefined;
+	if (nodeDecorators && nodeDecorators.some((v) => isFlameworkDecorator(state, v))) {
+		return true;
+	}
+
+	for (const member of declaration.members) {
+		const nodeDecorators = ts.canHaveDecorators(member) ? ts.getDecorators(member) : undefined;
+		if (nodeDecorators && nodeDecorators.some((v) => isFlameworkDecorator(state, v))) {
+			return true;
+		}
+	}
+}
+
+function isFlameworkDecorator(state: TransformState, decorator: ts.Decorator) {
+	const decoratorType = state.typeChecker.getTypeAtLocation(decorator.expression);
+	if (decoratorType.getProperty("_flamework_Decorator")) {
+		return true;
 	}
 }
