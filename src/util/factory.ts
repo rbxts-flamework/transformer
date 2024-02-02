@@ -333,6 +333,10 @@ export namespace f {
 		return factory.createComputedPropertyName(expression);
 	}
 
+	export function staticBlockDeclaration(statements: ts.Statement[]) {
+		return factory.createClassStaticBlockDeclaration(block(statements));
+	}
+
 	/// Type Nodes
 
 	export function functionType(

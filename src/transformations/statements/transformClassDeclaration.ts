@@ -4,10 +4,9 @@ import { Diagnostics } from "../../classes/diagnostics";
 import { NodeMetadata } from "../../classes/nodeMetadata";
 import { TransformState } from "../../classes/transformState";
 import { f } from "../../util/factory";
-import { buildGuardFromType, buildGuardsFromType } from "../../util/functions/buildGuardFromType";
-import { getSuperClasses } from "../../util/functions/getSuperClasses";
+import { buildGuardFromType } from "../../util/functions/buildGuardFromType";
 import { getNodeUid, getSymbolUid, getTypeUid } from "../../util/uid";
-import { withDiagnosticContext } from "../../util/diagnosticsUtils";
+import { updateComponentConfig } from "../macros/updateComponentConfig";
 
 export function transformClassDeclaration(state: TransformState, node: ts.ClassDeclaration) {
 	const symbol = state.getSymbol(node);
@@ -16,50 +15,39 @@ export function transformClassDeclaration(state: TransformState, node: ts.ClassD
 	const classInfo = state.classes.get(symbol);
 	if (!classInfo) return state.transform(node);
 
-	const fields: [string, f.ConvertableExpression][] = [];
+	const importIdentifier = state.addFileImport(state.getSourceFile(node), "@flamework/core", "Reflect");
+	const reflectStatements = new Array<ts.Statement>();
+	const decoratorStatements = new Array<ts.Statement>();
 	const metadata = new NodeMetadata(state, node);
 
-	fields.push(["identifier", getNodeUid(state, node)]);
+	reflectStatements.push(...convertReflectionToStatements(generateClassMetadata(state, metadata, node)));
+	decoratorStatements.push(...getDecoratorStatements(state, node, node, metadata));
 
-	const constructor = node.members.find((x): x is ts.ConstructorDeclaration => f.is.constructor(x));
-	if (constructor) {
-		fields.push(...generateMethodMetadata(state, metadata, constructor));
-	}
-
-	if (node.heritageClauses) {
-		const implementClauses = new Array<ts.StringLiteral>();
-		for (const clause of node.heritageClauses) {
-			if (clause.token !== ts.SyntaxKind.ImplementsKeyword) continue;
-
-			for (const type of clause.types) {
-				implementClauses.push(f.string(getNodeUid(state, type)));
-			}
-		}
-
-		if (implementClauses.length > 0 && metadata.isRequested("flamework:implements")) {
-			fields.push(["flamework:implements", f.array(implementClauses, false)]);
-		}
-	}
-
-	const importIdentifier = state.addFileImport(state.getSourceFile(node), "@flamework/core", "Reflect");
-	const realFields: ts.Statement[] = fields.map(([name, value]) =>
-		f.statement(f.call(f.field(importIdentifier, "defineMetadata"), [node.name!, name, value])),
-	);
-
-	realFields.push(...getDecoratorFields(state, node, node, metadata));
 	for (const member of node.members) {
-		if (!f.is.methodDeclaration(member) || member.body) {
-			realFields.push(...getDecoratorFields(state, node, member));
+		if (!member.name) {
+			continue;
 		}
+
+		const propertyName = ts.getPropertyNameForPropertyNameNode(member.name);
+		if (!propertyName) {
+			continue;
+		}
+
+		reflectStatements.push(...convertReflectionToStatements(getNodeReflection(state, member) ?? [], propertyName));
+		decoratorStatements.push(...getDecoratorStatements(state, node, member));
 	}
 
-	ts.addSyntheticLeadingComment(
-		realFields[0],
-		ts.SyntaxKind.SingleLineCommentTrivia,
-		`(Flamework) ${node.name.text} metadata`,
-	);
+	return [updateClass(state, node, reflectStatements), ...decoratorStatements];
 
-	return [updateClass(state, node), ...realFields];
+	function convertReflectionToStatements(metadata: [string, f.ConvertableExpression][], property?: string) {
+		const statements = metadata.map(([name, value]) => {
+			return f.statement(f.call(f.field(importIdentifier, "defineMetadata"), [node.name!, name, value]));
+		});
+
+		addSectionComment(statements[0], node, property, "metadata");
+
+		return statements;
+	}
 }
 
 function generateFieldMetadata(state: TransformState, metadata: NodeMetadata, field: ts.PropertyDeclaration) {
@@ -156,7 +144,9 @@ function transformDecoratorConfig(
 	symbol: ts.Symbol,
 	expr: ts.Expression,
 ) {
-	if (!f.is.call(expr)) return [];
+	if (!f.is.call(expr)) {
+		return [];
+	}
 
 	const metadata = NodeMetadata.fromSymbol(state, symbol);
 	if (metadata && metadata.isRequested("intrinsic-component-decorator")) {
@@ -175,37 +165,63 @@ function transformDecoratorConfig(
 	return expr.arguments.map((v) => state.transformNode(v));
 }
 
-function getDecoratorFields(
+function generateClassMetadata(state: TransformState, metadata: NodeMetadata, node: ts.ClassDeclaration) {
+	const fields: [string, f.ConvertableExpression][] = [];
+
+	fields.push(["identifier", getNodeUid(state, node)]);
+
+	const constructor = node.members.find((x): x is ts.ConstructorDeclaration => f.is.constructor(x));
+	if (constructor) {
+		fields.push(...generateMethodMetadata(state, metadata, constructor));
+	}
+
+	if (node.heritageClauses) {
+		const implementClauses = new Array<ts.StringLiteral>();
+		for (const clause of node.heritageClauses) {
+			if (clause.token !== ts.SyntaxKind.ImplementsKeyword) continue;
+
+			for (const type of clause.types) {
+				implementClauses.push(f.string(getNodeUid(state, type)));
+			}
+		}
+
+		if (implementClauses.length > 0 && metadata.isRequested("flamework:implements")) {
+			fields.push(["flamework:implements", f.array(implementClauses, false)]);
+		}
+	}
+
+	return fields;
+}
+
+function getNodeReflection(
+	state: TransformState,
+	node: ts.ClassDeclaration | ts.ClassElement,
+	metadata = new NodeMetadata(state, node),
+) {
+	if (f.is.methodDeclaration(node)) {
+		return generateMethodMetadata(state, metadata, node);
+	} else if (f.is.propertyDeclaration(node)) {
+		return generateFieldMetadata(state, metadata, node);
+	}
+}
+
+function getDecoratorStatements(
 	state: TransformState,
 	declaration: ts.ClassDeclaration,
 	node: ts.ClassDeclaration | ts.ClassElement,
 	metadata = new NodeMetadata(state, node),
-) {
-	if (!node.name) return [];
+): ts.Statement[] {
+	if (!node.name) {
+		return [];
+	}
 
+	const isClass = f.is.classDeclaration(node);
 	const symbol = state.getSymbol(node.name);
 	const propertyName = ts.getNameFromPropertyName(node.name);
 	assert(propertyName);
 	assert(symbol);
 	const importIdentifier = state.addFileImport(state.getSourceFile(node), "@flamework/core", "Reflect");
 	const decoratorStatements = new Array<ts.Statement>();
-
-	let generatedMetadata;
-	if (f.is.methodDeclaration(node)) {
-		generatedMetadata = generateMethodMetadata(state, metadata, node);
-	} else if (f.is.propertyDeclaration(node)) {
-		generatedMetadata = generateFieldMetadata(state, metadata, node);
-	}
-
-	if (generatedMetadata) {
-		decoratorStatements.push(
-			...generatedMetadata.map(([name, value]) =>
-				f.statement(
-					f.call(f.field(importIdentifier, "defineMetadata"), [declaration.name!, name, value, propertyName]),
-				),
-			),
-		);
-	}
 
 	const decorators = ts.canHaveDecorators(node) ? ts.getDecorators(node) : undefined;
 	if (decorators) {
@@ -240,14 +256,6 @@ function getDecoratorFields(
 		}
 	}
 
-	if (decoratorStatements[0] && !f.is.classDeclaration(node)) {
-		ts.addSyntheticLeadingComment(
-			decoratorStatements[0],
-			ts.SyntaxKind.SingleLineCommentTrivia,
-			`(Flamework) ${declaration.name!.text}.${propertyName} metadata`,
-		);
-	}
-
 	const constraintTypes = metadata.getType("constraint");
 	const nodeType = state.typeChecker.getTypeOfSymbolAtLocation(symbol, node);
 	for (const constraintType of constraintTypes ?? []) {
@@ -263,7 +271,22 @@ function getDecoratorFields(
 		}
 	}
 
+	addSectionComment(decoratorStatements[0], declaration, isClass ? undefined : propertyName, "decorators");
 	return decoratorStatements;
+}
+
+function addSectionComment(
+	node: ts.Node | undefined,
+	declaration: ts.ClassDeclaration,
+	property: string | undefined,
+	label: string,
+) {
+	if (!node) {
+		return;
+	}
+
+	const elementName = property === undefined ? `${declaration.name!.text}` : `${declaration.name!.text}.${property}`;
+	ts.addSyntheticLeadingComment(node, ts.SyntaxKind.SingleLineCommentTrivia, ` (Flamework) ${elementName} ${label}`);
 }
 
 function formatType(type: ts.Type) {
@@ -299,34 +322,40 @@ function getAssignabilityDiagnostics(
 	return diagnostic;
 }
 
-function updateClass(state: TransformState, node: ts.ClassDeclaration) {
+function updateClass(state: TransformState, node: ts.ClassDeclaration, staticStatements?: ts.Statement[]) {
 	const modifiers = getAllModifiers(node);
+	const members = node.members
+		.map((node) => state.transformNode(node))
+		.map((member) => {
+			// Strip Flamework decorators from members
+			const modifiers = getAllModifiers(member);
+			if (modifiers) {
+				const filteredModifiers = transformModifiers(state, modifiers);
+				if (f.is.propertyDeclaration(member)) {
+					return f.update.propertyDeclaration(member, undefined, undefined, filteredModifiers);
+				} else if (f.is.methodDeclaration(member)) {
+					return f.update.methodDeclaration(
+						member,
+						undefined,
+						undefined,
+						undefined,
+						undefined,
+						filteredModifiers,
+					);
+				}
+			}
+
+			return member;
+		});
+
+	if (staticStatements) {
+		members.push(f.staticBlockDeclaration(staticStatements));
+	}
+
 	return f.update.classDeclaration(
 		node,
 		node.name ? state.transformNode(node.name) : undefined,
-		node.members
-			.map((node) => state.transformNode(node))
-			.map((member) => {
-				// Strip Flamework decorators from members
-				const modifiers = getAllModifiers(member);
-				if (modifiers) {
-					const filteredModifiers = transformModifiers(state, modifiers);
-					if (f.is.propertyDeclaration(member)) {
-						return f.update.propertyDeclaration(member, undefined, undefined, filteredModifiers);
-					} else if (f.is.methodDeclaration(member)) {
-						return f.update.methodDeclaration(
-							member,
-							undefined,
-							undefined,
-							undefined,
-							undefined,
-							filteredModifiers,
-						);
-					}
-				}
-
-				return member;
-			}),
+		members,
 		node.heritageClauses,
 		node.typeParameters,
 		modifiers && transformModifiers(state, modifiers),
@@ -340,140 +369,12 @@ function getAllModifiers(node: ts.Node) {
 function transformModifiers(state: TransformState, modifiers: readonly ts.ModifierLike[]) {
 	return modifiers
 		.filter((modifier) => {
-			if (!ts.isDecorator(modifier)) return true;
+			if (!ts.isDecorator(modifier)) {
+				return true;
+			}
+
 			const type = state.typeChecker.getTypeAtLocation(modifier.expression);
 			return type.getProperty("_flamework_Decorator") === undefined;
 		})
 		.map((decorator) => state.transform(decorator));
-}
-
-function calculateOmittedGuards(
-	state: TransformState,
-	classDeclaration: ts.ClassDeclaration,
-	customAttributes?: ts.ObjectLiteralElementLike,
-) {
-	const omittedNames = new Set<string>();
-	if (f.is.propertyAssignmentDeclaration(customAttributes) && f.is.object(customAttributes.initializer)) {
-		for (const prop of customAttributes.initializer.properties) {
-			if (f.is.string(prop.name) || f.is.identifier(prop.name)) {
-				omittedNames.add(prop.name.text);
-			}
-		}
-	}
-
-	const type = state.typeChecker.getTypeAtLocation(classDeclaration);
-	const property = type.getProperty("attributes");
-	if (!property) return omittedNames;
-
-	const superClass = getSuperClasses(state.typeChecker, classDeclaration)[0];
-	if (!superClass) return omittedNames;
-
-	const superType = state.typeChecker.getTypeAtLocation(superClass);
-	const superProperty = superType.getProperty("attributes");
-	if (!superProperty) return omittedNames;
-
-	const attributes = state.typeChecker.getTypeOfSymbolAtLocation(property, classDeclaration);
-	const superAttributes = state.typeChecker.getTypeOfSymbolAtLocation(superProperty, superClass);
-	for (const { name } of superAttributes.getProperties()) {
-		const prop = state.typeChecker.getTypeOfPropertyOfType(attributes, name);
-		const superProp = state.typeChecker.getTypeOfPropertyOfType(superAttributes, name);
-
-		if (prop && superProp && superProp === prop) {
-			omittedNames.add(name);
-		}
-	}
-
-	return omittedNames;
-}
-
-function updateAttributeGuards(
-	state: TransformState,
-	node: ts.ClassDeclaration,
-	properties: ts.ObjectLiteralElementLike[],
-) {
-	const type = state.typeChecker.getTypeAtLocation(node);
-
-	const property = type.getProperty("attributes");
-	if (!property) return;
-
-	const attributesMeta = NodeMetadata.fromSymbol(state, property);
-	if (!attributesMeta || !attributesMeta.isRequested("intrinsic-component-attributes")) return;
-
-	const attributesType = state.typeChecker.getTypeOfSymbolAtLocation(property, node);
-	if (!attributesType) return;
-
-	const attributes = properties.find((x) => x.name && "text" in x.name && x.name.text === "attributes");
-	const attributeGuards = withDiagnosticContext(
-		node.name ?? node,
-		() => `Failed to generate component attributes: ${state.typeChecker.typeToString(attributesType)}`,
-		() => buildGuardsFromType(state, node.name ?? node, attributesType),
-	);
-
-	const omittedGuards = calculateOmittedGuards(state, node, attributes);
-	const filteredGuards = attributeGuards.filter((x) => !omittedGuards.has((x.name as ts.StringLiteral).text));
-	properties = properties.filter((x) => x !== attributes);
-
-	if (f.is.propertyAssignmentDeclaration(attributes) && f.is.object(attributes.initializer)) {
-		properties.push(
-			f.update.propertyAssignmentDeclaration(
-				attributes,
-				f.update.object(attributes.initializer, [
-					...attributes.initializer.properties.map((v) => state.transformNode(v)),
-					...filteredGuards,
-				]),
-				attributes.name,
-			),
-		);
-	} else {
-		properties.push(f.propertyAssignmentDeclaration("attributes", f.object(filteredGuards)));
-	}
-
-	return properties;
-}
-
-function updateInstanceGuard(
-	state: TransformState,
-	node: ts.ClassDeclaration,
-	properties: ts.ObjectLiteralElementLike[],
-) {
-	const type = state.typeChecker.getTypeAtLocation(node);
-
-	const property = type.getProperty("instance");
-	if (!property) return;
-
-	const attributesMeta = NodeMetadata.fromSymbol(state, property);
-	if (!attributesMeta || !attributesMeta.isRequested("intrinsic-component-instance")) return;
-
-	const superClass = getSuperClasses(state.typeChecker, node)[0];
-	if (!superClass) return;
-
-	const customGuard = properties.find((x) => x.name && "text" in x.name && x.name.text === "instanceGuard");
-	if (customGuard) return;
-
-	const instanceType = state.typeChecker.getTypeOfSymbolAtLocation(property, node);
-	if (!instanceType) return;
-
-	const superType = state.typeChecker.getTypeAtLocation(superClass);
-	const superProperty = superType.getProperty("instance");
-	if (!superProperty) return;
-
-	const superInstanceType = state.typeChecker.getTypeOfSymbolAtLocation(superProperty, superClass);
-	if (!superInstanceType) return;
-
-	if (!type.checker.isTypeAssignableTo(superInstanceType, instanceType)) {
-		const guard = buildGuardFromType(state, node, instanceType);
-		properties.push(f.propertyAssignmentDeclaration("instanceGuard", guard));
-	}
-
-	return properties;
-}
-
-function updateComponentConfig(
-	state: TransformState,
-	node: ts.ClassDeclaration,
-	properties: ts.ObjectLiteralElementLike[],
-): ts.ObjectLiteralElementLike[] {
-	properties = updateAttributeGuards(state, node, properties) ?? properties;
-	properties = updateInstanceGuard(state, node, properties) ?? properties;
-	return properties;
 }
