@@ -5,6 +5,7 @@ import { ClassInfo } from "../../types/classes";
 import { DecoratorInfo } from "../../types/decorators";
 import { f } from "../../util/factory";
 import { getNodeUid, getSymbolUid } from "../../util/uid";
+import { NodeMetadata } from "../../classes/nodeMetadata";
 
 export function viewClassDeclaration(state: TransformState, node: ts.ClassDeclaration) {
 	const symbol = state.getSymbol(node);
@@ -13,8 +14,6 @@ export function viewClassDeclaration(state: TransformState, node: ts.ClassDeclar
 	if (!node.name || !symbol) return;
 
 	const nodeDecorators = ts.canHaveDecorators(node) ? ts.getDecorators(node) : undefined;
-	const isFlameworkClass =
-		nodeDecorators !== undefined || node.members.some((v) => ts.canHaveDecorators(v) && ts.getDecorators(v));
 	const decorators: DecoratorInfo[] = [];
 
 	if (nodeDecorators) {
@@ -39,9 +38,12 @@ export function viewClassDeclaration(state: TransformState, node: ts.ClassDeclar
 		}
 	}
 
+	const flameworkDecorators = hasFlameworkDecorators(state, node);
+	const isFlameworkClass = flameworkDecorators || hasReflectMetadata(state, node);
 	if (isFlameworkClass) {
 		const classInfo: ClassInfo = {
 			name: node.name.text,
+			containsLegacyDecorator: flameworkDecorators,
 			internalId,
 			node,
 			decorators,
@@ -75,7 +77,40 @@ export function viewClassDeclaration(state: TransformState, node: ts.ClassDeclar
 					internalId: x.internalId,
 					name: x.name,
 				})),
+				containsLegacyDecorator: false,
 			});
 		}
+	}
+}
+
+function hasReflectMetadata(state: TransformState, declaration: ts.ClassDeclaration) {
+	const metadata = new NodeMetadata(state, declaration);
+	if (metadata.isRequested("reflect")) {
+		return true;
+	}
+
+	return false;
+}
+
+function hasFlameworkDecorators(state: TransformState, declaration: ts.ClassDeclaration) {
+	const nodeDecorators = ts.canHaveDecorators(declaration) ? ts.getDecorators(declaration) : undefined;
+	if (nodeDecorators && nodeDecorators.some((v) => isFlameworkDecorator(state, v))) {
+		return true;
+	}
+
+	for (const member of declaration.members) {
+		const nodeDecorators = ts.canHaveDecorators(member) ? ts.getDecorators(member) : undefined;
+		if (nodeDecorators && nodeDecorators.some((v) => isFlameworkDecorator(state, v))) {
+			return true;
+		}
+	}
+
+	return false;
+}
+
+function isFlameworkDecorator(state: TransformState, decorator: ts.Decorator) {
+	const decoratorType = state.typeChecker.getTypeAtLocation(decorator.expression);
+	if (decoratorType.getProperty("_flamework_Decorator")) {
+		return true;
 	}
 }
