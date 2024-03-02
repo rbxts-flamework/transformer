@@ -38,9 +38,12 @@ export function viewClassDeclaration(state: TransformState, node: ts.ClassDeclar
 		}
 	}
 
-	if (isFlameworkClass(state, node)) {
+	const flameworkDecorators = hasFlameworkDecorators(state, node);
+	const isFlameworkClass = flameworkDecorators || hasReflectMetadata(state, node);
+	if (isFlameworkClass) {
 		const classInfo: ClassInfo = {
 			name: node.name.text,
+			containsLegacyDecorator: flameworkDecorators,
 			internalId,
 			node,
 			decorators,
@@ -74,17 +77,22 @@ export function viewClassDeclaration(state: TransformState, node: ts.ClassDeclar
 					internalId: x.internalId,
 					name: x.name,
 				})),
+				containsLegacyDecorator: false,
 			});
 		}
 	}
 }
 
-function isFlameworkClass(state: TransformState, declaration: ts.ClassDeclaration) {
+function hasReflectMetadata(state: TransformState, declaration: ts.ClassDeclaration) {
 	const metadata = new NodeMetadata(state, declaration);
 	if (metadata.isRequested("reflect")) {
 		return true;
 	}
 
+	return false;
+}
+
+function hasFlameworkDecorators(state: TransformState, declaration: ts.ClassDeclaration) {
 	const nodeDecorators = ts.canHaveDecorators(declaration) ? ts.getDecorators(declaration) : undefined;
 	if (nodeDecorators && nodeDecorators.some((v) => isFlameworkDecorator(state, v))) {
 		return true;
@@ -96,6 +104,8 @@ function isFlameworkClass(state: TransformState, declaration: ts.ClassDeclaratio
 			return true;
 		}
 	}
+
+	return false;
 }
 
 function isFlameworkDecorator(state: TransformState, decorator: ts.Decorator) {

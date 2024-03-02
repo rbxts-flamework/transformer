@@ -6,4 +6,5 @@ export interface ClassInfo {
 	node: ts.Node;
 	name: string;
 	decorators: DecoratorInfo[];
+	containsLegacyDecorator: boolean;
 }

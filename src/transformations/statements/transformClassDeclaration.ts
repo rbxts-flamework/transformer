@@ -7,6 +7,7 @@ import { f } from "../../util/factory";
 import { buildGuardFromType } from "../../util/functions/buildGuardFromType";
 import { getNodeUid, getSymbolUid, getTypeUid } from "../../util/uid";
 import { updateComponentConfig } from "../macros/updateComponentConfig";
+import type { ClassInfo } from "../../types/classes";
 
 export function transformClassDeclaration(state: TransformState, node: ts.ClassDeclaration) {
 	const symbol = state.getSymbol(node);
@@ -20,7 +21,7 @@ export function transformClassDeclaration(state: TransformState, node: ts.ClassD
 	const decoratorStatements = new Array<ts.Statement>();
 	const metadata = new NodeMetadata(state, node);
 
-	reflectStatements.push(...convertReflectionToStatements(generateClassMetadata(state, metadata, node)));
+	reflectStatements.push(...convertReflectionToStatements(generateClassMetadata(state, classInfo, metadata, node)));
 	decoratorStatements.push(...getDecoratorStatements(state, node, node, metadata));
 
 	for (const member of node.members) {
@@ -165,10 +166,19 @@ function transformDecoratorConfig(
 	return expr.arguments.map((v) => state.transformNode(v));
 }
 
-function generateClassMetadata(state: TransformState, metadata: NodeMetadata, node: ts.ClassDeclaration) {
+function generateClassMetadata(
+	state: TransformState,
+	classInfo: ClassInfo,
+	metadata: NodeMetadata,
+	node: ts.ClassDeclaration,
+) {
 	const fields: [string, f.ConvertableExpression][] = [];
 
-	fields.push(["identifier", getNodeUid(state, node)]);
+	// Flamework decorators always generate the identifier field,
+	// but the new decorator system does not require the identifier metadata to be specified.
+	if (classInfo.containsLegacyDecorator || metadata.isRequested("identifier")) {
+		fields.push(["identifier", getNodeUid(state, node)]);
+	}
 
 	const constructor = node.members.find((x): x is ts.ConstructorDeclaration => f.is.constructor(x));
 	if (constructor) {
