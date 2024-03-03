@@ -339,6 +339,13 @@ export function createGuardGenerator(state: TransformState, file: ts.SourceFile,
 			fail("Flamework cannot generate intersections with multiple index signatures.");
 		}
 
+		// We find any disjoint types (strings, numbers, etc) as intersections with them are invalid.
+		// Most intersections with disjoint types are used to introduce nominal fields.
+		const disjointType = type.types.find((v) => v.flags & ts.TypeFlags.DisjointDomains);
+		if (disjointType) {
+			return buildGuard(disjointType);
+		}
+
 		const guards = type.types.map(buildGuard);
 		return f.call(f.field(tId, "intersection"), guards);
 	}
