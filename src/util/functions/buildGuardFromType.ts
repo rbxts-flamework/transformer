@@ -357,12 +357,12 @@ export function createGuardGenerator(state: TransformState, file: ts.SourceFile,
 			const propertyType = typeChecker.getTypeOfPropertyOfType(type, property.name);
 			if (!propertyType) fail("Could not find type for field");
 
-			if (declaration) {
-				tracking.push([declaration, propertyType]);
-			}
-
 			if (isInterfaceType && (propertyType.flags & ts.TypeFlags.Unknown) !== 0) {
 				continue;
+			}
+
+			if (declaration) {
+				tracking.push([declaration, propertyType]);
 			}
 
 			const attribute = buildGuard(propertyType);
