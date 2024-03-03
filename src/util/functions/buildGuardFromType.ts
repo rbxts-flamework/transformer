@@ -301,13 +301,6 @@ export function createGuardGenerator(state: TransformState, file: ts.SourceFile,
 			return guards.length > 1 ? f.call(f.field(tId, "intersection"), guards) : guards[0];
 		}
 
-		// Elaboration error
-		if (type.flags & ts.TypeFlags.UniqueESSymbol) {
-			fail(
-				`A "unique symbol" type was encountered. Did you accidentally include a boxed type such as String, Number or Boolean?`,
-			);
-		}
-
 		fail(`An unknown type was encountered: ${typeChecker.typeToString(type)}`);
 	}
 
