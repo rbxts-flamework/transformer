@@ -66,6 +66,8 @@ const RBX_TYPES = [
 	...RBX_TYPES_NEW,
 ] as const;
 
+const OBJECT_IGNORED_FIELD_TYPES = ts.TypeFlags.Unknown | ts.TypeFlags.Never | ts.TypeFlags.UniqueESSymbol;
+
 /**
  * Convert a type into a type guard.
  * @param state The TransformState
@@ -364,7 +366,7 @@ export function createGuardGenerator(state: TransformState, file: ts.SourceFile,
 			const propertyType = typeChecker.getTypeOfPropertyOfType(type, property.name);
 			if (!propertyType) fail("Could not find type for field");
 
-			if (isInterfaceType && (propertyType.flags & (ts.TypeFlags.Unknown | ts.TypeFlags.Never)) !== 0) {
+			if (isInterfaceType && (propertyType.flags & OBJECT_IGNORED_FIELD_TYPES) !== 0) {
 				continue;
 			}
 
