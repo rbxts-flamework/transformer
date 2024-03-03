@@ -66,6 +66,8 @@ const RBX_TYPES = [
 	...RBX_TYPES_NEW,
 ] as const;
 
+const OBJECT_IGNORED_FIELD_TYPES = ts.TypeFlags.Unknown | ts.TypeFlags.Never | ts.TypeFlags.UniqueESSymbol;
+
 /**
  * Convert a type into a type guard.
  * @param state The TransformState
@@ -299,13 +301,6 @@ export function createGuardGenerator(state: TransformState, file: ts.SourceFile,
 			return guards.length > 1 ? f.call(f.field(tId, "intersection"), guards) : guards[0];
 		}
 
-		// Elaboration error
-		if (type.flags & ts.TypeFlags.UniqueESSymbol) {
-			fail(
-				`A "unique symbol" type was encountered. Did you accidentally include a boxed type such as String, Number or Boolean?`,
-			);
-		}
-
 		fail(`An unknown type was encountered: ${typeChecker.typeToString(type)}`);
 	}
 
@@ -339,6 +334,13 @@ export function createGuardGenerator(state: TransformState, file: ts.SourceFile,
 			fail("Flamework cannot generate intersections with multiple index signatures.");
 		}
 
+		// We find any disjoint types (strings, numbers, etc) as intersections with them are invalid.
+		// Most intersections with disjoint types are used to introduce nominal fields.
+		const disjointType = type.types.find((v) => v.flags & ts.TypeFlags.DisjointDomains);
+		if (disjointType) {
+			return buildGuard(disjointType);
+		}
+
 		const guards = type.types.map(buildGuard);
 		return f.call(f.field(tId, "intersection"), guards);
 	}
@@ -357,7 +359,7 @@ export function createGuardGenerator(state: TransformState, file: ts.SourceFile,
 			const propertyType = typeChecker.getTypeOfPropertyOfType(type, property.name);
 			if (!propertyType) fail("Could not find type for field");
 
-			if (isInterfaceType && (propertyType.flags & ts.TypeFlags.Unknown) !== 0) {
+			if (isInterfaceType && (propertyType.flags & OBJECT_IGNORED_FIELD_TYPES) !== 0) {
 				continue;
 			}
 
