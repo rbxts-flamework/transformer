@@ -42,7 +42,12 @@ export function transformClassDeclaration(state: TransformState, node: ts.ClassD
 
 	function convertReflectionToStatements(metadata: [string, f.ConvertableExpression][], property?: string) {
 		const statements = metadata.map(([name, value]) => {
-			return f.statement(f.call(f.field(importIdentifier, "defineMetadata"), [node.name!, name, value]));
+			const args = [node.name!, name, value];
+			if (property !== undefined) {
+				args.push(property);
+			}
+
+			return f.statement(f.call(f.field(importIdentifier, "defineMetadata"), args));
 		});
 
 		addSectionComment(statements[0], node, property, "metadata");
