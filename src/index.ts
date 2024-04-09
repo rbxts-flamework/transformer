@@ -1,70 +1,92 @@
-import {} from "ts-expose-internals";
-import ts from "typescript";
+/* eslint-disable @typescript-eslint/no-var-requires */
+import { existsSync } from "fs";
+import { Module } from "module";
 import path from "path";
-import { transformFile } from "./transformations/transformFile";
-import { TransformerConfig, TransformState } from "./classes/transformState";
+import { isPathDescendantOf } from "./util/functions/isPathDescendantOf";
 import { Logger } from "./classes/logger";
-import { viewFile } from "./information/viewFile";
-import { f } from "./util/factory";
-import chalk from "chalk";
-import { PKG_VERSION } from "./classes/pathTranslator/constants";
-import { emitTypescriptMismatch } from "./util/functions/emitTypescriptMismatch";
 
-export default function (program: ts.Program, config?: TransformerConfig) {
-	return (context: ts.TransformationContext): ((file: ts.SourceFile) => ts.Node) => {
-		if (Logger.verbose) Logger.write("\n");
-		f.setFactory(context.factory);
+function resolve(moduleName: string, path: string): string | undefined {
+	try {
+		return require.resolve(moduleName, { paths: [path] });
+	} finally {
+	}
+}
 
-		const state = new TransformState(program, context, config ?? {});
-		let hasCollectedInformation = false;
+const cwd = process.cwd();
+const originalRequire = Module.prototype.require;
 
-		const projectFlameworkVersion = state.buildInfo.getFlameworkVersion();
-		if (projectFlameworkVersion !== PKG_VERSION) {
-			Logger.writeLine(
-				`${chalk.red("Project was compiled on different version of Flamework.")}`,
-				`Please recompile by deleting the ${path.relative(state.currentDirectory, state.outDir)} directory`,
-				`Current Flamework Version: ${chalk.yellow(PKG_VERSION)}`,
-				`Previous Flamework Version: ${chalk.yellow(projectFlameworkVersion)}`,
-			);
-			process.exit(1);
+function shouldTryHooking() {
+	if (process.argv.includes("--no-flamework-hook")) {
+		return false;
+	}
+
+	if (process.argv.includes("--force-flamework-hook")) {
+		return true;
+	}
+
+	// Ensure we're running in the context of a project and not a multiplace repository or something,
+	// as we don't have access to the project directory until roblox-ts invokes the transformer.
+	if (
+		!existsSync(path.join(cwd, "tsconfig.json")) ||
+		!existsSync(path.join(cwd, "package.json")) ||
+		!existsSync(path.join(cwd, "node_modules"))
+	) {
+		return false;
+	}
+
+	return true;
+}
+
+function hook() {
+	const robloxTsPath = resolve("roblox-ts", cwd);
+	if (!robloxTsPath) {
+		return;
+	}
+
+	const robloxTsTypeScriptPath = resolve("typescript", robloxTsPath);
+	if (!robloxTsTypeScriptPath) {
+		return;
+	}
+
+	const flameworkTypeScript = require("typescript");
+	const robloxTsTypeScript = require(robloxTsTypeScriptPath);
+
+	// Flamework and roblox-ts are referencing the same TypeScript module.
+	if (flameworkTypeScript === robloxTsTypeScript) {
+		return;
+	}
+
+	if (flameworkTypeScript.versionMajorMinor !== robloxTsTypeScript.versionMajorMinor) {
+		if (Logger.verbose) {
+			Logger.write("\n");
 		}
 
-		setTimeout(() => state.saveArtifacts());
-		return (file: ts.SourceFile) => {
-			if (!ts.isSourceFile(file)) {
-				emitTypescriptMismatch(state, chalk.red("Failed to load! TS version mismatch detected"));
-			}
+		Logger.warn(
+			"TypeScript version differs",
+			`Flamework: v${flameworkTypeScript.version}, roblox-ts: v${robloxTsTypeScript.version}`,
+			`Flamework will switch to v${robloxTsTypeScript.version}, ` +
+				`but you can get rid of this warning by running: npm i -D typescript@${robloxTsTypeScript.version}`,
+		);
+	}
 
-			if (state.config.noSemanticDiagnostics !== true) {
-				const originalFile = ts.getParseTreeNode(file, ts.isSourceFile);
-				if (originalFile) {
-					const preEmitDiagnostics = ts.getPreEmitDiagnostics(program, originalFile);
-					if (preEmitDiagnostics.some((x) => x.category === ts.DiagnosticCategory.Error)) {
-						preEmitDiagnostics
-							.filter(ts.isDiagnosticWithLocation)
-							.forEach((diag) => context.addDiagnostic(diag));
-						return file;
-					}
-				} else {
-					const relativeName = path.relative(state.srcDir, file.fileName);
-					Logger.warn(`Failed to validate '${relativeName}' due to lack of parse tree node.`);
-				}
-			}
+	Module.prototype.require = function flameworkHook(this: NodeJS.Module, id) {
+		// Overwrite any Flamework TypeScript imports to roblox-ts' version.
+		// To be on the safe side, this won't hook it in packages.
+		if (id === "typescript" && isPathDescendantOf(this.filename, __dirname)) {
+			return robloxTsTypeScript;
+		}
 
-			if (!hasCollectedInformation) {
-				hasCollectedInformation = true;
-
-				program.getSourceFiles().forEach((file) => {
-					if (file.isDeclarationFile && !state.shouldViewFile(file)) return;
-
-					viewFile(state, file);
-				});
-			}
-
-			if (state.hasErrors) return file;
-
-			const result = transformFile(state, file);
-			return result;
-		};
-	};
+		return originalRequire.call(this, id);
+	} as NodeJS.Require;
 }
+
+if (shouldTryHooking()) {
+	hook();
+}
+
+const transformer = require("./transformer");
+
+// After loading Flamework, we can unhook require.
+Module.prototype.require = originalRequire;
+
+export = transformer;

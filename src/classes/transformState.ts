@@ -494,12 +494,7 @@ export class TransformState {
 		return this.config.obfuscation ? shuffle(array) : array;
 	}
 
-	public hasErrors = false;
 	addDiagnostic(diag: ts.DiagnosticWithLocation) {
-		if (diag.category === ts.DiagnosticCategory.Error) {
-			this.hasErrors = true;
-		}
-
 		this.context.addDiagnostic(diag);
 	}
 
