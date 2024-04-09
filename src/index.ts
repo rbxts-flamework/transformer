@@ -64,7 +64,8 @@ function hook() {
 		Logger.warn(
 			"TypeScript version differs",
 			`Flamework: v${flameworkTypeScript.version}, roblox-ts: v${robloxTsTypeScript.version}`,
-			`Flamework will use v${robloxTsTypeScript.version}, but you can resolve this by running: npm i -D typescript@${robloxTsTypeScript.version}`,
+			`Flamework will switch to v${robloxTsTypeScript.version}, ` +
+				`but you can get rid of this warning by running: npm i -D typescript@${robloxTsTypeScript.version}`,
 		);
 	}
 
