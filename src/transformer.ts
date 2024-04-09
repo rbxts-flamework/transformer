@@ -61,8 +61,6 @@ export default function (program: ts.Program, config?: TransformerConfig) {
 				});
 			}
 
-			if (state.hasErrors) return file;
-
 			const result = transformFile(state, file);
 			return result;
 		};
