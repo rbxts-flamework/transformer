@@ -3,6 +3,7 @@ import { existsSync } from "fs";
 import { Module } from "module";
 import path from "path";
 import { isPathDescendantOf } from "./util/functions/isPathDescendantOf";
+import { Logger } from "./classes/logger";
 
 function resolve(moduleName: string, path: string): string | undefined {
 	try {
@@ -42,16 +43,36 @@ function hook() {
 		return;
 	}
 
-	const robloxTsTypeScript = resolve("typescript", robloxTsPath);
-	if (!robloxTsTypeScript) {
+	const robloxTsTypeScriptPath = resolve("typescript", robloxTsPath);
+	if (!robloxTsTypeScriptPath) {
 		return;
+	}
+
+	const flameworkTypeScript = require("typescript");
+	const robloxTsTypeScript = require(robloxTsTypeScriptPath);
+
+	// Flamework and roblox-ts are referencing the same TypeScript module.
+	if (flameworkTypeScript === robloxTsTypeScript) {
+		return;
+	}
+
+	if (flameworkTypeScript.versionMajorMinor !== robloxTsTypeScript.versionMajorMinor) {
+		if (Logger.verbose) {
+			Logger.write("\n");
+		}
+
+		Logger.warn(
+			"TypeScript version differs",
+			`Flamework: v${flameworkTypeScript.version}, roblox-ts: v${robloxTsTypeScript.version}`,
+			`Flamework will use v${robloxTsTypeScript.version}, but you can resolve this by running: npm i -D typescript@${robloxTsTypeScript.version}`,
+		);
 	}
 
 	Module.prototype.require = function flameworkHook(this: NodeJS.Module, id) {
 		// Overwrite any Flamework TypeScript imports to roblox-ts' version.
 		// To be on the safe side, this won't hook it in packages.
 		if (id === "typescript" && isPathDescendantOf(this.filename, __dirname)) {
-			return originalRequire.call(this, path.join(robloxTsTypeScript));
+			return robloxTsTypeScript;
 		}
 
 		return originalRequire.call(this, id);
