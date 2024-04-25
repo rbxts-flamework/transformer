@@ -56,15 +56,14 @@ export namespace f {
 		return factory.createArrayLiteralExpression(values, multiLine);
 	}
 
-	export function number(value: number, flags?: ts.TokenFlags) {
-		if (value < 0) {
-			return factory.createPrefixUnaryExpression(
-				ts.SyntaxKind.MinusToken,
-				factory.createNumericLiteral(Math.abs(value), flags),
-			);
-		} else {
-			return factory.createNumericLiteral(value, flags);
+	export function number(value: number | string, flags?: ts.TokenFlags) {
+		if (typeof value === "string") {
+			return factory.createStringLiteral(value);
 		}
+
+		return value < 0
+			? factory.createPrefixUnaryExpression(ts.SyntaxKind.MinusToken, factory.createNumericLiteral(-value, flags))
+			: factory.createNumericLiteral(value, flags);
 	}
 
 	export function identifier(name: string, unique = false) {
