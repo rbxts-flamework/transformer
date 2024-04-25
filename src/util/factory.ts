@@ -57,7 +57,9 @@ export namespace f {
 	}
 
 	export function number(value: number | string, flags?: ts.TokenFlags) {
-		return factory.createNumericLiteral(value, flags);
+		return +value < 0
+			? factory.createPrefixUnaryExpression(ts.SyntaxKind.MinusToken, factory.createNumericLiteral(-value, flags))
+			: factory.createNumericLiteral(value, flags);
 	}
 
 	export function identifier(name: string, unique = false) {
