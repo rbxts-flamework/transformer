@@ -13,7 +13,7 @@ export function transformNode(state: TransformState, node: ts.Node): ts.Node | t
 		}
 	} catch (e) {
 		if (e instanceof Error && !("diagnostic" in e)) {
-			Diagnostics.error(node, `Flamework failure occured here\n${e.stack}`);
+			Diagnostics.error(node, `Flamework failure occurred here\n${e.stack}`);
 		}
 
 		throw e;

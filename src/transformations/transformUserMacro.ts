@@ -238,7 +238,7 @@ function buildIntrinsicMacro(state: TransformState, node: ts.Expression, macro: 
 
 		const innerMacro = getUserMacroOfMany(state, node, macroType);
 		if (!innerMacro) {
-			throw new Error(`Intrinisic obfuscate-obj received no inner macro.`);
+			throw new Error(`Intrinsic obfuscate-obj received no inner macro.`);
 		}
 
 		transformObfuscatedObjectIntrinsic(state, innerMacro, hashType);
@@ -254,7 +254,7 @@ function buildIntrinsicMacro(state: TransformState, node: ts.Expression, macro: 
 
 		const innerMacro = getUserMacroOfMany(state, node, macroType);
 		if (!innerMacro) {
-			throw new Error(`Intrinisic obfuscate-obj received no inner macro.`);
+			throw new Error(`Intrinsic obfuscate-obj received no inner macro.`);
 		}
 
 		transformShuffleArrayIntrinsic(state, innerMacro);
@@ -324,7 +324,7 @@ function getUserMacroOfMany(state: TransformState, node: ts.Expression, target: 
 		const userMacros = new Array<UserMacro>();
 
 		for (const member of constituents) {
-			// `never` may be encountered when a union has no contituents, so we should just return an empty array.
+			// `never` may be encountered when a union has no constituents, so we should just return an empty array.
 			if (member.flags & ts.TypeFlags.Never) {
 				break;
 			}
