@@ -11,6 +11,8 @@ export function transformFile(state: TransformState, file: ts.SourceFile): ts.So
 
 	const imports = state.fileImports.get(file.fileName);
 	if (imports) {
+		const firstStatement = statements[0];
+
 		statements.unshift(
 			...imports.map((info) =>
 				f.importDeclaration(
@@ -19,6 +21,12 @@ export function transformFile(state: TransformState, file: ts.SourceFile): ts.So
 				),
 			),
 		);
+
+		// steal comments from original first statement so that comment directives work properly
+		if (firstStatement && statements[0]) {
+			ts.copyComments(firstStatement, statements[0]);
+			ts.removeAllComments(firstStatement);
+		}
 	}
 
 	for (const diag of Diagnostics.flush()) {
