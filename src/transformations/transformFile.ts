@@ -26,11 +26,11 @@ export function transformFile(state: TransformState, file: ts.SourceFile): ts.So
 		if (firstStatement && statements[0]) {
 			const original = ts.getParseTreeNode(firstStatement);
 
+			ts.moveSyntheticComments(statements[0], firstStatement);
+
 			if (original) {
 				ts.copyComments(original, statements[0]);
 				ts.removeAllComments(original);
-			} else {
-				ts.moveSyntheticComments(statements[0], firstStatement);
 			}
 		}
 	}
