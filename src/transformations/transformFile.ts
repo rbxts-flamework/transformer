@@ -24,8 +24,14 @@ export function transformFile(state: TransformState, file: ts.SourceFile): ts.So
 
 		// steal comments from original first statement so that comment directives work properly
 		if (firstStatement && statements[0]) {
-			ts.copyComments(firstStatement, statements[0]);
-			ts.removeAllComments(firstStatement);
+			const original = ts.getParseTreeNode(firstStatement);
+
+			ts.moveSyntheticComments(statements[0], firstStatement);
+
+			if (original) {
+				ts.copyComments(original, statements[0]);
+				ts.removeAllComments(original);
+			}
 		}
 	}
 
