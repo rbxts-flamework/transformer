@@ -39,7 +39,7 @@ export function getInternalId(state: TransformState, node: ts.NamedDeclaration) 
 	const { directory, result } = getPackageJson(path.dirname(filePath));
 
 	if (isPathDescendantOfAny(filePath, state.rootDirs)) {
-		const outputPath = state.pathTranslator.getOutputPath(filePath).replace(/(\.lua)$/, "");
+		const outputPath = state.pathTranslator.getOutputPath(filePath).replace(/(\.lua|\.d\.ts)$/, "");
 		const relativePath = path.relative(state.currentDirectory, outputPath);
 		const internalId = `${result.name}:${relativePath.replace(/\\/g, "/")}@${fullName}`;
 		return {
