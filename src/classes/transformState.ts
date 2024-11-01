@@ -426,9 +426,14 @@ export class TransformState {
 				if (!f.is.string(statement.moduleSpecifier)) continue;
 				if (!f.is.importClauseDeclaration(statement.importClause)) continue;
 				if (!f.is.namedImports(statement.importClause.namedBindings)) continue;
+				if (statement.importClause.isTypeOnly) continue;
 				if (statement.moduleSpecifier.text !== importPath) continue;
 
 				for (const importElement of statement.importClause.namedBindings.elements) {
+					if (importElement.isTypeOnly) {
+						continue;
+					}
+
 					if (importElement.propertyName) {
 						if (importElement.propertyName.text === name) {
 							identifier = importElement.name;
