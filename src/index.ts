@@ -4,13 +4,7 @@ import { Module } from "module";
 import path from "path";
 import { isPathDescendantOf } from "./util/functions/isPathDescendantOf";
 import { Logger } from "./classes/logger";
-
-function resolve(moduleName: string, path: string): string | undefined {
-	try {
-		return require.resolve(moduleName, { paths: [path] });
-	} finally {
-	}
-}
+import { tryResolve } from "./util/functions/tryResolve";
 
 const cwd = process.cwd();
 const originalRequire = Module.prototype.require;
@@ -38,12 +32,12 @@ function shouldTryHooking() {
 }
 
 function hook() {
-	const robloxTsPath = resolve("roblox-ts", cwd);
+	const robloxTsPath = tryResolve("roblox-ts", cwd);
 	if (!robloxTsPath) {
 		return;
 	}
 
-	const robloxTsTypeScriptPath = resolve("typescript", robloxTsPath);
+	const robloxTsTypeScriptPath = tryResolve("typescript", robloxTsPath);
 	if (!robloxTsTypeScriptPath) {
 		return;
 	}

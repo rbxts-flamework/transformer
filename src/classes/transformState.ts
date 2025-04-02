@@ -22,6 +22,8 @@ import { assert } from "../util/functions/assert";
 import { getSchemaErrors, validateSchema } from "../util/schema";
 import { shuffle } from "../util/functions/shuffle";
 import glob from "glob";
+import { tryResolve } from "../util/functions/tryResolve";
+import { Diagnostics } from "./diagnostics";
 
 const IGNORE_RBXTS_REGEX = /node_modules\/@rbxts\/(compiler-types|types)\/.*\.d\.ts$/;
 
@@ -103,6 +105,7 @@ export class TransformState {
 	public isGame: boolean;
 
 	public isUserMacroCache = new Map<ts.Symbol, boolean>();
+	public flameworkGuardLibraryPath?: string;
 
 	private setupBuildInfo() {
 		let baseBuildInfo = BuildInfo.fromDirectory(this.currentDirectory);
@@ -563,6 +566,37 @@ export class TransformState {
 		Cache.shouldView.set(file.fileName, result);
 
 		return result;
+	}
+
+	getGuardLibrary(file: ts.SourceFile) {
+		if (this.flameworkGuardLibraryPath) {
+			return this.addFileImport(file, this.flameworkGuardLibraryPath, "t");
+		}
+
+		const corePath = tryResolve("@flamework/core", file.fileName);
+		if (corePath === undefined) {
+			Diagnostics.warning(file.endOfFileToken, "Flamework core was not found, guard generation may not work.");
+			return this.addFileImport(file, "@rbxts/t", "t");
+		}
+
+		const fileGuardPath = tryResolve("@rbxts/t", file.fileName);
+		const coreGuardPath = tryResolve("@rbxts/t", corePath);
+		if (fileGuardPath === coreGuardPath) {
+			// @flamework/core and the consuming project are using the same @rbxts/t version.
+			this.flameworkGuardLibraryPath = "@rbxts/t";
+			return this.addFileImport(file, "@rbxts/t", "t");
+		}
+
+		if (
+			coreGuardPath === undefined ||
+			!isPathDescendantOf(coreGuardPath, path.join(path.dirname(corePath), "../node_modules/@rbxts/t"))
+		) {
+			Diagnostics.warning(file.endOfFileToken, "Valid `@rbxts/t` was not found, guard generation may not work.");
+			return this.addFileImport(file, "@rbxts/t", "t");
+		}
+
+		this.flameworkGuardLibraryPath = "@flamework/core/node_modules/@rbxts/t";
+		return this.addFileImport(file, this.flameworkGuardLibraryPath, "t");
 	}
 }
 

@@ -130,7 +130,7 @@ export function createGuardGenerator(state: TransformState, file: ts.SourceFile,
 
 	function buildGuardInner(type: ts.Type): ts.Expression {
 		const typeChecker = state.typeChecker;
-		const tId = state.addFileImport(file, "@rbxts/t", "t");
+		const tId = state.getGuardLibrary(file);
 
 		if (type.isUnion()) {
 			return buildUnionGuard(type);
@@ -151,7 +151,7 @@ export function createGuardGenerator(state: TransformState, file: ts.SourceFile,
 			const baseGuard = f.call(f.field(tId, "instanceIsA"), [instanceType.symbol.name]);
 			return additionalGuards.length === 0
 				? baseGuard
-				: f.call(f.field(tId, "intersection"), [
+				: listLikeGuard("intersection", [
 						baseGuard,
 						f.call(f.field(tId, "children"), [f.object(additionalGuards)]),
 				  ]);
@@ -162,10 +162,7 @@ export function createGuardGenerator(state: TransformState, file: ts.SourceFile,
 		}
 
 		if (isConditionalType(type)) {
-			return f.call(f.field(tId, "union"), [
-				buildGuard(type.resolvedTrueType!),
-				buildGuard(type.resolvedFalseType!),
-			]);
+			return listLikeGuard("union", [buildGuard(type.resolvedTrueType!), buildGuard(type.resolvedFalseType!)]);
 		}
 
 		if ((type.flags & ts.TypeFlags.TypeVariable) !== 0) {
@@ -177,7 +174,7 @@ export function createGuardGenerator(state: TransformState, file: ts.SourceFile,
 
 		const literals = getLiteral(type);
 		if (literals) {
-			return f.call(f.field(tId, "literal"), literals);
+			return listLikeGuard("literal", literals);
 		}
 
 		if (typeChecker.isTupleType(type)) {
@@ -219,7 +216,7 @@ export function createGuardGenerator(state: TransformState, file: ts.SourceFile,
 		}
 
 		if ((type.flags & ts.TypeFlags.Unknown) !== 0) {
-			return f.call(f.field(tId, "union"), [f.field(tId, "any"), f.field(tId, "none")]);
+			return listLikeGuard("union", [f.field(tId, "any"), f.field(tId, "none")]);
 		}
 
 		if (type.flags & ts.TypeFlags.TemplateLiteral) {
@@ -298,14 +295,14 @@ export function createGuardGenerator(state: TransformState, file: ts.SourceFile,
 				guards.push(f.call(f.field(tId, "map"), [buildGuard(indexInfo.keyType), buildGuard(indexInfo.type)]));
 			}
 
-			return guards.length > 1 ? f.call(f.field(tId, "intersection"), guards) : guards[0];
+			return guards.length > 1 ? listLikeGuard("intersection", guards) : guards[0];
 		}
 
 		fail(`An unknown type was encountered: ${typeChecker.typeToString(type)}`);
 	}
 
 	function buildUnionGuard(type: ts.UnionType) {
-		const tId = state.addFileImport(file, "@rbxts/t", "t");
+		const tId = state.getGuardLibrary(file);
 
 		const boolType = type.checker.getBooleanType();
 		if (type === boolType) {
@@ -318,18 +315,16 @@ export function createGuardGenerator(state: TransformState, file: ts.SourceFile,
 		guards.push(...enums.map((enumId) => f.call(f.field(tId, "enum"), [f.field("Enum", enumId)])));
 
 		if (literals.length > 0) {
-			guards.push(f.call(f.field(tId, "literal"), literals));
+			guards.push(listLikeGuard("literal", literals));
 		}
 
-		const union = guards.length > 1 ? f.call(f.field(tId, "union"), guards) : guards[0];
+		const union = guards.length > 1 ? listLikeGuard("union", guards) : guards[0];
 		if (!union) return f.field(tId, "none");
 
 		return isOptional ? f.call(f.field(tId, "optional"), [union]) : union;
 	}
 
 	function buildIntersectionGuard(type: ts.IntersectionType) {
-		const tId = state.addFileImport(file, "@rbxts/t", "t");
-
 		if (type.checker.getIndexInfosOfType(type).length > 1) {
 			fail("Flamework cannot generate intersections with multiple index signatures.");
 		}
@@ -342,7 +337,7 @@ export function createGuardGenerator(state: TransformState, file: ts.SourceFile,
 		}
 
 		const guards = type.types.map(buildGuard);
-		return f.call(f.field(tId, "intersection"), guards);
+		return listLikeGuard("intersection", guards);
 	}
 
 	function buildGuardsFromType(type: ts.Type, isInterfaceType = false): ts.PropertyAssignment[] {
@@ -380,6 +375,22 @@ export function createGuardGenerator(state: TransformState, file: ts.SourceFile,
 		}
 
 		return guards;
+	}
+
+	/**
+	 * This function creates a guard using either the vararg function or list (array) version.
+	 *
+	 * This is a relatively naive method of checking as it does not keep track of the real register count,
+	 * but fixing this fully would likely involve moving away from `t`.
+	 */
+	function listLikeGuard(guard: string, list: ts.Expression[]) {
+		const tId = state.getGuardLibrary(file);
+
+		if (list.length <= 2) {
+			return f.call(f.field(tId, guard), list);
+		}
+
+		return f.call(f.field(tId, `${guard}List`), [list]);
 	}
 }
 
