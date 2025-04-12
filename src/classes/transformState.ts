@@ -22,7 +22,7 @@ import { assert } from "../util/functions/assert";
 import { getSchemaErrors, validateSchema } from "../util/schema";
 import { shuffle } from "../util/functions/shuffle";
 import glob from "glob";
-import { tryResolve } from "../util/functions/tryResolve";
+import { tryResolveTS } from "../util/functions/tryResolve";
 import { Diagnostics } from "./diagnostics";
 
 const IGNORE_RBXTS_REGEX = /node_modules\/@rbxts\/(compiler-types|types)\/.*\.d\.ts$/;
@@ -573,14 +573,14 @@ export class TransformState {
 			return this.addFileImport(file, this.flameworkGuardLibraryPath, "t");
 		}
 
-		const corePath = tryResolve("@flamework/core", file.fileName);
+		const corePath = tryResolveTS(this, "@flamework/core", file.fileName);
 		if (corePath === undefined) {
 			Diagnostics.warning(file.endOfFileToken, "Flamework core was not found, guard generation may not work.");
 			return this.addFileImport(file, "@rbxts/t", "t");
 		}
 
-		const fileGuardPath = tryResolve("@rbxts/t", file.fileName);
-		const coreGuardPath = tryResolve("@rbxts/t", corePath);
+		const fileGuardPath = tryResolveTS(this, "@rbxts/t", path.dirname(file.fileName));
+		const coreGuardPath = tryResolveTS(this, "@rbxts/t", corePath);
 		if (fileGuardPath === coreGuardPath) {
 			// @flamework/core and the consuming project are using the same @rbxts/t version.
 			this.flameworkGuardLibraryPath = "@rbxts/t";
@@ -595,7 +595,7 @@ export class TransformState {
 			return this.addFileImport(file, "@rbxts/t", "t");
 		}
 
-		this.flameworkGuardLibraryPath = "@flamework/core/node_modules/@rbxts/t";
+		this.flameworkGuardLibraryPath = "@flamework/core/out/prelude";
 		return this.addFileImport(file, this.flameworkGuardLibraryPath, "t");
 	}
 }
