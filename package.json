@@ -40,7 +40,7 @@
 		"eslint-plugin-prettier": "^4.0.0",
 		"prettier": "^2.4.1",
 		"ts-expose-internals": "^5.2.2",
-		"typescript": "^5.2.2"
+		"typescript": "^5.5.3"
 	},
 	"peerDependencies": {
 		"typescript": "*"
