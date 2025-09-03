@@ -67,6 +67,52 @@ const RBX_TYPES = [
 ] as const;
 
 const OBJECT_IGNORED_FIELD_TYPES = ts.TypeFlags.Unknown | ts.TypeFlags.Never | ts.TypeFlags.UniqueESSymbol;
+const DEDUP_HEURISTIC_LIMIT = 5;
+const DEDUP_HEURISTIC_FLAGS = ts.TypeFlags.Object | ts.TypeFlags.UnionOrIntersection;
+
+function getTypesRequiringDedupHeuristic(type: ts.Type, dedupLimit = DEDUP_HEURISTIC_LIMIT) {
+	const seenCount = new Map<ts.Type, number>();
+
+	function recurse(type: ts.Type, modifier = 1) {
+		if (type.flags & DEDUP_HEURISTIC_FLAGS) {
+			const typeSeenCount = seenCount.get(type) ?? 0;
+			seenCount.set(type, typeSeenCount + modifier);
+		}
+
+		if (type.isUnionOrIntersection()) {
+			type.types.forEach((ty) => recurse(ty, modifier));
+		} else if (type.flags & ts.TypeFlags.Object && !isInstanceType(type)) {
+			for (const property of type.getProperties()) {
+				const propertyType = type.checker.getTypeOfPropertyOfType(type, property.name);
+				if (!propertyType) {
+					continue;
+				}
+
+				recurse(propertyType, modifier);
+			}
+
+			for (const indexInfo of type.checker.getIndexInfosOfType(type)) {
+				recurse(indexInfo.keyType, modifier);
+				recurse(indexInfo.type, modifier);
+			}
+		}
+	}
+
+	recurse(type);
+
+	const requiresDedup = new Set<ts.Type>();
+
+	for (const [type, count] of seenCount) {
+		if (count >= dedupLimit) {
+			requiresDedup.add(type);
+
+			// We subtract all the children, as deduplicating the parent effectively removes `count - 1` of any children from the emit.
+			recurse(type, -(count - 1));
+		}
+	}
+
+	return requiresDedup;
+}
 
 /**
  * Convert a type into a type guard.
@@ -86,11 +132,40 @@ export function buildGuardFromType(
 }
 
 /**
+ * Convert a type into a type guard, deduplicating large guards.
+ * @param state The TransformState
+ * @param file The file that this type belongs to
+ * @param type The type to convert
+ * @returns An array of property assignments.
+ */
+export function buildGuardFromTypeWithDedup(
+	state: TransformState,
+	node: ts.Node,
+	type: ts.Type,
+	file = state.getSourceFile(node),
+) {
+	const generator = createGuardGenerator(state, file, node);
+	const dedupLimit = state.config.optimizations?.guardGenerationDedupLimit;
+	if (dedupLimit !== undefined) {
+		generator.calculateDedup(type, Math.max(dedupLimit, 1));
+	}
+
+	return {
+		guard: generator.buildGuard(type),
+		statements: generator.dedupStatements,
+	};
+}
+
+/**
  * Creates a stateful guard generator.
  */
 export function createGuardGenerator(state: TransformState, file: ts.SourceFile, diagnosticNode: ts.Node) {
 	const tracking = new Array<[ts.Node, ts.Type]>();
-	return { buildGuard, buildGuardsFromType };
+	const dedupStatements = new Array<ts.Statement>();
+	const dedupIds = new Map<ts.Type, ts.Identifier>();
+	let requiresDedup = new Set<ts.Type>();
+
+	return { buildGuard, buildGuardsFromType, calculateDedup, dedupStatements };
 
 	function fail(err: string): never {
 		const basicDiagnostic = Diagnostics.createDiagnostic(diagnosticNode, ts.DiagnosticCategory.Error, err);
@@ -113,7 +188,18 @@ export function createGuardGenerator(state: TransformState, file: ts.SourceFile,
 		throw new DiagnosticError(basicDiagnostic);
 	}
 
+	function calculateDedup(type: ts.Type, dedupLimit?: number) {
+		requiresDedup = getTypesRequiringDedupHeuristic(type, dedupLimit);
+	}
+
 	function buildGuard(type: ts.Type): ts.Expression {
+		if (requiresDedup.has(type)) {
+			const existingId = dedupIds.get(type);
+			if (existingId) {
+				return existingId;
+			}
+		}
+
 		const declaration = getDeclarationOfType(type);
 		if (declaration) {
 			tracking.push([declaration, type]);
@@ -123,6 +209,15 @@ export function createGuardGenerator(state: TransformState, file: ts.SourceFile,
 
 		if (declaration) {
 			assert(tracking.pop()?.[0] === declaration, "Popped value was not expected");
+		}
+
+		if (requiresDedup.has(type)) {
+			const dedupId = f.identifier(type.aliasSymbol?.name ?? "dedup", true);
+			dedupIds.set(type, dedupId);
+
+			dedupStatements.push(f.variableStatement(dedupId, guard));
+
+			return dedupId;
 		}
 
 		return guard;

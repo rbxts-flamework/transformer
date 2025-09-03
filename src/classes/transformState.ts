@@ -82,6 +82,13 @@ export interface TransformerConfig {
 	 * Defaults to "full" and should only be configured in game projects.
 	 */
 	idGenerationMode?: "full" | "short" | "tiny" | "obfuscated";
+
+	/**
+	 * Some experimental optimizations
+	 */
+	optimizations?: {
+		guardGenerationDedupLimit?: number;
+	};
 }
 
 export class TransformState {

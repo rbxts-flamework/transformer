@@ -3,7 +3,7 @@ import ts from "typescript";
 import { Diagnostics } from "../classes/diagnostics";
 import { TransformState } from "../classes/transformState";
 import { f } from "../util/factory";
-import { buildGuardFromType } from "../util/functions/buildGuardFromType";
+import { buildGuardFromTypeWithDedup } from "../util/functions/buildGuardFromType";
 import { getTypeUid } from "../util/uid";
 import { NodeMetadata } from "../classes/nodeMetadata";
 import { buildPathGlobIntrinsic, buildPathIntrinsic } from "./macros/intrinsics/paths";
@@ -178,7 +178,10 @@ function buildUserMacro(state: TransformState, node: ts.Expression, macro: UserM
 		}
 
 		if (macro.metadata === "guard") {
-			return buildGuardFromType(state, node, macro.target);
+			const result = buildGuardFromTypeWithDedup(state, node, macro.target);
+			state.prereqList(result.statements);
+
+			return result.guard;
 		}
 
 		if (macro.metadata === "text") {
